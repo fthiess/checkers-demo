@@ -356,3 +356,29 @@ was rewritten to rename on disk in `writeBundle`.
 **Why it is written down.** The failure is silent and the warning scrolls past in a
 successful-looking build. `vite-plugin-singlefile` itself works correctly under Rolldown;
 the landmine is in bundle-mutating plugins written from Rollup habits.
+
+---
+
+## D-18 — `main` is protected, admins included
+
+**Date:** 2026-08-05 · **Forrest's call**
+
+**Decision.** `main` requires the `verify` status check as a *strict* check — the branch must
+be up to date before merging — with `enforce_admins` enabled, and force pushes and branch
+deletion disabled.
+
+**Why.** The methodology allows merging on green without a human pause for ordinary changes,
+but only in repositories where continuous integration enforces the *full* verification gate
+and branch protection requires it. Without that, "CI green" and "verified" are different
+claims and the relaxation has no foundation. `enforce_admins` is the load-bearing part: with
+admin bypass open, the protection is a suggestion, and the person most likely to bypass it is
+the one person who can.
+
+**Consequences.** Nothing reaches `main` except through a pull request whose gate passed,
+including changes made by the repository owner. Because force pushes are disabled, a mistake
+that lands on `main` is corrected by a revert rather than by rewriting history — which is the
+right trade for a public repository whose commit SHAs are cited from issues and pull requests.
+
+⚠ This configuration lives in repository settings, outside the tree, where no test can assert
+it. It is recorded here because that is the only place it can be. If a later session finds
+merge-on-green behaving as though the gate were advisory, check the protection first.

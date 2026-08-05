@@ -66,21 +66,33 @@ it is expensive to retrofit.
 - ◐ **0.4 Continuous integration.** GitHub Actions running the full gate on every pull
   request; branch protection requiring it.
   *Accepts:* a deliberately failing test blocks a pull request; a passing one does not.
-  *Built 2026-08-05.* The failing half was proved on a throwaway pull request: the run went
-  red on the deliberate assertion and the check reported `fail`. `main` now requires the
-  `verify` check as a strict check with `enforce_admins` on, force pushes and deletions
-  disabled. ⚠ That protection lives in repository settings where no test in the tree can
-  assert it; if it is ever relaxed, "CI green" stops meaning "verified".
+  *Built 2026-08-05.* Both halves proved: a throwaway pull request carrying one deliberate
+  false assertion went red and reported `fail`, and #8 merged green through the protection.
+  `main` requires the `verify` check as a strict check with `enforce_admins` on, force
+  pushes and deletions disabled (D-18). ⚠ That protection lives in repository settings where
+  no test in the tree can assert it; if it is ever relaxed, "CI green" stops meaning
+  "verified". Not separately proved: that a direct push to `main` is rejected — a `--dry-run`
+  push never reaches the server's receive path, and pushing for real to find out would have
+  left a junk commit that force-push is now disabled to remove.
 - ◐ **0.5 Static deploy.** Publish the hosted build on merge to the default branch (R-2,
   R-61).
   *Accepts:* the placeholder is reachable at a public URL and updates on merge.
   *Built 2026-08-05.* GitHub Pages (D-15) at <https://fthiess.github.io/checkers-demo/>. The
   deploy is a job that `needs` the gate job in the same workflow, so "deploys when green" is
   a real dependency rather than two things that happen to run on the same push, and the
-  artifact deployed is the one the gate checked.
+  artifact deployed is the one the gate checked. The URL serves the placeholder and runs its
+  script — it reports "Running from the web", which is the hosted branch of the same code
+  that reports "Running from a local file" under `file://`, so both distribution forms are
+  confirmed working and correctly distinguishable (R-52).
 
-**Live test at end of phase 0** — Forrest opens `dist-single/checkers.html` from the Windows
-desktop and the hosted URL in a browser, and confirms both render.
+**Live test at end of phase 0** — everything above stays at in-progress until this happens,
+because the legend reserves the tick for work that has been live-tested. Two things to check:
+
+1. Open <https://fthiess.github.io/checkers-demo/> and confirm the placeholder renders.
+2. Run `npm run build:single`, then double-click `dist-single/checkers.html` from Windows
+   Explorer and confirm it renders the same page. This is the one that matters — R-1 is the
+   requirement the whole deliverable rests on, and a browser opening a local file is the only
+   thing that can really confirm it.
 
 ## Phase 1 — Walking skeleton
 
@@ -271,3 +283,4 @@ Updated at the close of each session.
 | Date | Session | Outcome |
 | --- | --- | --- |
 | 2026-08-05 | Design | Requirements, design, decisions, and roadmap written and approved. D-1 through D-14 recorded. |
+| 2026-08-05 | Phase 0 | Toolchain, both build outputs, CI gate, branch protection, and the Pages deploy (#4, #8). D-15 through D-18 and N-1 recorded. Issues #6 and #7 opened from the code review. Awaiting the phase live test. |
