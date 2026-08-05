@@ -3,6 +3,13 @@
 Everything you need is in this repository. There is no private wiki, no shared chat history,
 and no context living on someone else's machine that you are missing.
 
+**New here, and working with Claude Code?** [ONBOARDING.md](ONBOARDING.md) walks the whole
+first session — prerequisites, the repository invitation, Git identity, the clone, and picking
+a phase. Open Claude Code and say: *"Let's get started on the next phase of checkers-demo. The
+onboarding instructions are at
+https://github.com/fthiess/checkers-demo/blob/main/ONBOARDING.md"*. The rest of this file is
+the reference version of the same thing.
+
 ## Set up
 
 Node 22.12 or newer.
