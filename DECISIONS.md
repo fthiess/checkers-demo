@@ -11,11 +11,17 @@ direction is recorded as a *new* entry that names what it changes ("amends D-3",
 
 Identifiers are `D-n` for design decisions and `N-n` for implementation notes. Every entry
 records the reasoning, not just the outcome — the *why* is the part a later session cannot
-reconstruct. Entries marked **Forrest's call** are genuine forks that were presented with
-options and decided by the project owner.
+reconstruct. An attribution marks a genuine fork that was presented with options and decided,
+rather than a conclusion that was derived.
 
-A topic index (`DECISIONS-INDEX.md`) will be added once the log grows past roughly twenty
-entries; below that size the log is faster to read whole.
+Entries are attributed **by role and never by name** — "Session owner's call", meaning whoever
+drove the session that recorded it — because this repository is public and contributors have
+not consented to being identified in it (D-19). Entries D-1 through D-18 predate that
+convention and keep their original attribution, since the log is append-only.
+
+The log has passed twenty entries, so **[DECISIONS-INDEX.md](DECISIONS-INDEX.md) is now the
+read-first artifact**: consult it and jump to the few entries that govern your surface, rather
+than reading this file whole. Update the index in the same pull request as any append here.
 
 ---
 
@@ -382,3 +388,71 @@ right trade for a public repository whose commit SHAs are cited from issues and 
 ⚠ This configuration lives in repository settings, outside the tree, where no test can assert
 it. It is recorded here because that is the only place it can be. If a later session finds
 merge-on-green behaving as though the gate were advisory, check the protection first.
+
+---
+
+## D-19 — The project is delegated, and decisions are attributed by role
+
+**Date:** 2026-08-05 · **Session owner's call**
+
+**Context.** The project moves from one author to three contributors with Write access. Two
+things had to be settled: who satisfies the methodology's approval gates, and how decisions
+are attributed in a log that until now said "Forrest's call."
+
+**Decision.** Full delegation. **The session owner — whoever is driving a given session —
+approves that session's plan, decides its design forks, and live-tests its outcome.** No
+approval routes elsewhere and no gate is satisfied by anyone's absence. `main` requires no
+approving review; a green gate plus the Gate 3 review round remains the quality check, so a
+contributor may merge their own pull request once it is green (amends nothing in D-18, which
+stays exactly as configured).
+
+**Decisions are attributed by role — "Session owner's call" — never by name.**
+
+**Why.** Delegation without decision authority is not delegation; it makes the original author
+a bottleneck on every parallel workstream, which is the thing the handoff exists to relieve. A
+review requirement was considered and rejected for the same reason: with a small team it would
+block more often than it would catch, and the audit loop — reading `git log` on `main` at each
+live test — recovers the oversight after the fact at far lower cost.
+
+Role attribution is a direct consequence of D-13. This repository is public, and contributors
+have not consented to being identified in it; a first name plus a public repository plus a git
+commit email is an identification. The git history already records who did what, for anyone
+with a legitimate reason to look, without publishing it in prose.
+
+**Consequences.** Entries D-1 through D-18 keep their original "Forrest's call" attribution —
+the log is append-only, and the project owner's name is already public here by D-17. The
+convention changes going forward, not retroactively. Contributors set a GitHub `noreply`
+address before their first commit so commit metadata does not undo the rule; `CONTRIBUTING.md`
+carries that instruction, because it is the one piece of setup that cannot be fixed afterwards.
+
+**The audit loop is now load-bearing.** With three people merging on green, reading `main`'s
+log at each live test is the only place a surprising change gets caught. Anything surprising
+means the merge criteria tighten.
+
+---
+
+## D-20 — The vendored methodology is the project's own, and no longer tracks its upstream
+
+**Date:** 2026-08-05 · **Session owner's call**
+
+**Context.** `.claude/skills/dev-workflow/` arrived as a snapshot of a personal methodology
+written for a single author. It named that author throughout, routed every approval to him,
+described a different project's CI and tracker, and instructed sessions to diff the copy
+against a clone on his machine and offer to resync.
+
+**Decision.** The vendored copy is adapted for this project and this team, and stops tracking
+its upstream. Approvals are role-based, the tracker is GitHub issues, and the CI and merge
+facts are this repository's. It is changed here, in a pull request, like any other project
+document.
+
+**Why.** A methodology that names one person and routes decisions to him does not merely read
+oddly on a contributor's machine — it actively mis-instructs, because their assistant will
+read it literally and wait for someone who is not in the session. Keeping the sync
+relationship would mean either re-personalising on every pull or maintaining a permanent
+diff, and neither is worth it for a document that is now describing a different team's
+practice.
+
+**Consequences.** Improvements made here do not automatically reach the upstream, and vice
+versa. If a genuinely general improvement is made in this copy, it is worth porting by hand —
+but that is a deliberate act, not a background expectation. The freshness check that used to
+run at skill invocation is removed; nothing now compares this file to anything.

@@ -18,11 +18,11 @@ Write the rollback plan before the deploy, not during the incident. It fits on h
 
 ## Staged exposure and the first-hour watch
 
-Grow exposure in steps, with a bake period at each step and advancement only when the current step has baked clean. At PBE scale the "percentages" are usually people — Forrest first, then a few brothers in the know, then the announcement to the full list — but the structure is the same as a 1% → 10% → 100% canary.
+Grow exposure in steps, with a bake period at each step and advancement only when the current step has baked clean. At small scale the "percentages" are usually people — the contributors first, then a few trusted testers, then everyone — but the structure is the same as a 1% → 10% → 100% canary.
 
 The first hour after any production deploy is a watch, not a walk-away:
 
-- [ ] Health check passes and the critical flow (for Book: login → directory → profile) is manually exercised.
+- [ ] Health check passes and the critical flow is manually exercised end to end.
 - [ ] Logs are flowing and readable; **no new error types** — not merely "the error rate looks OK."
 - [ ] Latency in line with baseline.
 - [ ] The rollback lever is confirmed ready (flag reachable, previous version still deployable).
@@ -39,7 +39,7 @@ Never change a field in place, and never ship a data-shape change and the code t
 4. **Switch reads** to the new field, still dual-writing; deploy and let it bake.
 5. **Contract** — stop writing the old field, then remove it, in a separate, later deploy.
 
-Every step leaves the system consistent even if the next step never happens, and every migration has a tested way back — written and run *before* merge, not sketched after trouble starts. "Schema" here means whatever shape the store enforces or the code assumes: Firestore document shapes, Ghost member labels, config formats. The same discipline governs any bulk mutation of live records (member consolidation, list cleanups): batch it, make it resumable, and know the undo before running it.
+Every step leaves the system consistent even if the next step never happens, and every migration has a tested way back — written and run *before* merge, not sketched after trouble starts. "Schema" here means whatever shape the store enforces or the code assumes: persisted game state, the wire message format, config files. The same discipline governs any bulk mutation of live records (member consolidation, list cleanups): batch it, make it resumable, and know the undo before running it.
 
 ## Feature-flag lifecycle
 

@@ -2,13 +2,13 @@
 
 How a project gets from idea to a coding plan. This is the front half of the lifecycle; SKILL.md covers the per-session coding loop that follows.
 
-## 1. Ideation (Forrest's stage)
+## 1. Ideation (the project owner's stage)
 
-Forrest comes up with the idea and fleshes it out — free-flowing notes, slowly fitted into an overarching outline. Claude may assist informally, but there is no process here to enforce. Ideation ends when the notes fit an outline.
+The project owner comes up with the idea and fleshes it out — free-flowing notes, slowly fitted into an overarching outline. Claude may assist informally, but there is no process here to enforce. Ideation ends when the notes fit an outline.
 
 ## 2. The seed document
 
-Forrest writes a **seed document**: a merging and distillation of the ideation notes. It states the project motivation and goals, and may go deep on selected aspects of requirements or engineering design. The seed is the design stage's single input.
+The project owner writes a **seed document**: a merging and distillation of the ideation notes. It states the project motivation and goals, and may go deep on selected aspects of requirements or engineering design. The seed is the design stage's single input.
 
 ## 3. Design planning
 
@@ -24,22 +24,22 @@ Typical deliverables of the design stage:
 - Engineering Design
 - Data Schema
 - API Spec
-- **Decision log (DECISIONS.md / ADR)** — started on day one, append-only, records every significant decision with its reasoning; genuine forks are decided by Forrest and recorded as "Forrest's call."
+- **Decision log (DECISIONS.md / ADR)** — started on day one, append-only, records every significant decision with its reasoning; genuine forks are decided by the session owner and recorded as "Session owner's call" — by role, never by name, because the repository is public.
 
 ## 4. Execute the design plan
 
-Run the design sessions in order, each building on the previous. Discuss-first applies throughout: Claude proposes, Forrest reacts, decisions get logged. Every session ends by committing the updated docs.
+Run the design sessions in order, each building on the previous. Discuss-first applies throughout: Claude proposes, the session owner reacts, decisions get logged. Every session ends by committing the updated docs.
 
 ## 5. Adversarial design review
 
 When the design docs are complete, run them through **fresh sessions of the strongest model at max effort with no prior context on the project** — the reviewer must not share the designers' assumptions. Review from multiple independent angles (e.g., security/privacy, operations/cost, data integrity, UX/accessibility), each as its own review pass.
 
-Reviewer hygiene: hand each reviewer the artifact and the contract it must satisfy — never the designers' reasoning or conclusions, because a reviewer given conclusions returns validation of those conclusions. Bound the back-and-forth on any single finding at three cycles; non-convergence after three is information about the artifact (usually: it's too big — decompose it), not a reason to keep looping. And watch for **doubt theater**: if a review pass surfaces substantive findings and triage classifies none of them as actionable, the process is validating rather than reviewing — stop and escalate to Forrest.
+Reviewer hygiene: hand each reviewer the artifact and the contract it must satisfy — never the designers' reasoning or conclusions, because a reviewer given conclusions returns validation of those conclusions. Bound the back-and-forth on any single finding at three cycles; non-convergence after three is information about the artifact (usually: it's too big — decompose it), not a reason to keep looping. And watch for **doubt theater**: if a review pass surfaces substantive findings and triage classifies none of them as actionable, the process is validating rather than reviewing — stop and say so plainly to the session owner.
 
 Then, back in a context-bearing session:
 
 1. **Consolidate** all review findings into a single composite.
-2. **Triage** every finding (accept / reject / defer, with reasoning) — Forrest dispositions the contentious ones.
+2. **Triage** every finding (accept / reject / defer, with reasoning) — the session owner dispositions the contentious ones.
 3. Build a **remediation plan**, structured like the design plan (multiple sessions scoped by focus and context).
 4. Execute remediation, propagating each accepted change once into every affected doc, and record the dispositions in the decision log.
 

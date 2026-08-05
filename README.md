@@ -35,8 +35,10 @@ The full specification is in [REQUIREMENTS.md §5](REQUIREMENTS.md).
 
 | Document | Contents |
 | --- | --- |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Start here if you are new: setup, the gate, and how work happens |
 | [REQUIREMENTS.md](REQUIREMENTS.md) | What is being built, for whom, and what "done" means |
 | [DESIGN.md](DESIGN.md) | Architecture, rules engine, network protocol, interface, build |
+| [DECISIONS-INDEX.md](DECISIONS-INDEX.md) | Which decisions govern which subsystem — read before the log |
 | [DECISIONS.md](DECISIONS.md) | Every significant decision and the reasoning behind it |
 | [ROADMAP.md](ROADMAP.md) | Phased implementation plan, updated as work proceeds |
 

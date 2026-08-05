@@ -118,9 +118,10 @@ there is nothing else in the way.
   message.
   *Accepts:* the flow is comprehensible to someone who has not read this document.
 
-**Live test at end of phase 1** — Forrest and a second person, on two networks, connect and
-move the token. This is the phase most likely to surface something the design did not
-anticipate.
+**Live test at end of phase 1** — the session owner and a second person, on two different
+networks, connect and move the token. Two tabs on one machine will not do: the whole risk this
+phase exists to surface is what happens between two real networks. This is the phase most
+likely to turn up something the design did not anticipate.
 
 ## Phase 2 — Rules engine
 
