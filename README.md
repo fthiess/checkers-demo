@@ -15,8 +15,9 @@ it, play. It is also published as a web page; the two are functionally identical
 
 ## Status
 
-**Phase 0 — toolchain and delivery.** The application itself does not exist yet; what is
-published today is a placeholder page. See [ROADMAP.md](ROADMAP.md) for what comes next.
+**Phase 0 complete.** Toolchain, both distribution forms, and the delivery pipeline are in
+place and live-tested. The application itself does not exist yet; what is published today is
+a placeholder page. Phase 1, the walking skeleton, is next — see [ROADMAP.md](ROADMAP.md).
 
 Live at **<https://fthiess.github.io/checkers-demo/>**, redeployed from `main` whenever the
 verification gate passes.
