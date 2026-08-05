@@ -283,3 +283,4 @@ Updated at the close of each session.
 | --- | --- | --- |
 | 2026-08-05 | Design | Requirements, design, decisions, and roadmap written and approved. D-1 through D-14 recorded. |
 | 2026-08-05 | Phase 0 | Toolchain, both build outputs, CI gate, branch protection, and the Pages deploy (#4, #8, #9). D-15 through D-18 and N-1 recorded. Issues #6 and #7 opened from the code review. Live-tested and complete. |
+| 2026-08-05 | Handoff | Repository prepared for more than one contributor (#11, #12). Delegated approval and role-based attribution (D-19); the vendored methodology adapted and forked from its upstream (D-20). CONTRIBUTING, ONBOARDING, and DECISIONS-INDEX added. |
