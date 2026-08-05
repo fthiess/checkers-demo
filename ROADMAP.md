@@ -66,10 +66,18 @@ it is expensive to retrofit.
 - ◐ **0.4 Continuous integration.** GitHub Actions running the full gate on every pull
   request; branch protection requiring it.
   *Accepts:* a deliberately failing test blocks a pull request; a passing one does not.
-- ☐ **0.5 Static deploy.** Publish the hosted build on merge to the default branch (R-2,
+  *Built 2026-08-05.* The failing half was proved on a throwaway pull request: the run went
+  red on the deliberate assertion and the check reported `fail`. `main` now requires the
+  `verify` check as a strict check with `enforce_admins` on, force pushes and deletions
+  disabled. ⚠ That protection lives in repository settings where no test in the tree can
+  assert it; if it is ever relaxed, "CI green" stops meaning "verified".
+- ◐ **0.5 Static deploy.** Publish the hosted build on merge to the default branch (R-2,
   R-61).
   *Accepts:* the placeholder is reachable at a public URL and updates on merge.
-  *Target is GitHub Pages (D-15).*
+  *Built 2026-08-05.* GitHub Pages (D-15) at <https://fthiess.github.io/checkers-demo/>. The
+  deploy is a job that `needs` the gate job in the same workflow, so "deploys when green" is
+  a real dependency rather than two things that happen to run on the same push, and the
+  artifact deployed is the one the gate checked.
 
 **Live test at end of phase 0** — Forrest opens `dist-single/checkers.html` from the Windows
 desktop and the hosted URL in a browser, and confirms both render.
