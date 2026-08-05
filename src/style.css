@@ -1,0 +1,91 @@
+/*
+ * Baseline only. The board, themes, and colour selection arrive in Phases 3 and 4; what is
+ * set here are the things that are expensive to retrofit — a readable measure, contrast that
+ * passes WCAG 2.2 AA in both appearances, a visible focus ring, and touch targets that are
+ * large enough (R-45, R-47, R-49, R-50), plus honoured motion preferences (R-30).
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --surface: #fbfaf7;
+  --ink: #1c1a17;
+  --ink-muted: #4a453e;
+  --accent: #7a3b12;
+
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 100%;
+  line-height: 1.6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #16150f;
+    --ink: #f2efe6;
+    --ink-muted: #c3bcac;
+    --accent: #f0a868;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+main {
+  max-width: 38rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  line-height: 1.15;
+}
+
+p {
+  margin: 0 0 1rem;
+  color: var(--ink-muted);
+}
+
+a {
+  color: var(--accent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.2em;
+}
+
+/* Touch targets stay at least ~44px tall even when the link text is short. */
+a:link,
+a:visited {
+  display: inline-block;
+  min-height: 2.75rem;
+  line-height: 2.75rem;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/*
+ * R-30 wants a tested peer path for reduced motion rather than a disabling switch, and
+ * Phase 4 builds that. This blanket stop is the safety net underneath it: it has to beat
+ * every later animation declaration whatever its specificity, which is the one case
+ * `!important` is the correct tool for, so `noImportantStyles` is suppressed deliberately
+ * here and nowhere else.
+ */
+/* biome-ignore-start lint/complexity/noImportantStyles: the reduced-motion reset must win the cascade unconditionally (R-30). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* biome-ignore-end lint/complexity/noImportantStyles: end of the reduced-motion reset. */

@@ -1,0 +1,176 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": ["**", "!dist", "!dist-single"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "semicolons": "always"
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/engine/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/game",
+                      "**/game/**",
+                      "**/net",
+                      "**/net/**",
+                      "**/ai",
+                      "**/ai/**",
+                      "**/ui",
+                      "**/ui/**",
+                      "**/app",
+                      "**/app/**"
+                    ],
+                    "message": "engine/ imports nothing (DESIGN.md §1). It is a pure module (R-59)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/game/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/net",
+                      "**/net/**",
+                      "**/ai",
+                      "**/ai/**",
+                      "**/ui",
+                      "**/ui/**",
+                      "**/app",
+                      "**/app/**"
+                    ],
+                    "message": "game/ may import engine/ only (DESIGN.md §1)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/net/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/game",
+                      "**/game/**",
+                      "**/ai",
+                      "**/ai/**",
+                      "**/ui",
+                      "**/ui/**",
+                      "**/app",
+                      "**/app/**"
+                    ],
+                    "message": "net/ may import engine/ only, for the state hash (DESIGN.md §1)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/ai/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/game",
+                      "**/game/**",
+                      "**/net",
+                      "**/net/**",
+                      "**/ui",
+                      "**/ui/**",
+                      "**/app",
+                      "**/app/**"
+                    ],
+                    "message": "ai/ may import engine/ only (DESIGN.md §1)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/ui/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/net", "**/net/**", "**/ai", "**/ai/**", "**/app", "**/app/**"],
+                    "message": "ui/ may import game/ and engine/ types only; anything crossing to net/ goes through game/ (DESIGN.md §1)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

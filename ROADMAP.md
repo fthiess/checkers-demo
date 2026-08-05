@@ -22,7 +22,7 @@ Phase 1 connects two browsers before the engine exists.
 
 | Phase | Theme | Status |
 | --- | --- | --- |
-| 0 | Repository, toolchain, CI, deploy | ☐ |
+| 0 | Repository, toolchain, CI, deploy | ◐ |
 | 1 | Walking skeleton — two browsers connected | ☐ |
 | 2 | Rules engine | ☐ |
 | 3 | Board interface and input | ☐ |
@@ -38,24 +38,41 @@ Phase 1 connects two browsers before the engine exists.
 Establishes the ground everything else stands on. Nothing here is interesting, and all of
 it is expensive to retrofit.
 
-- ☐ **0.1 Repository and design documents.** Initialise the repository, publish the four
+- ☑ **0.1 Repository and design documents.** Initialise the repository, publish the four
   design documents, add a README, `.gitignore`, and licence.
   *Accepts:* repository exists at `fthiess/checkers-demo`; documents render correctly on
   GitHub; no personal information anywhere in the tree or in commit messages (D-13).
-- ☐ **0.2 Toolchain.** TypeScript, Vite, Biome, Vitest, with scripts for typecheck, lint,
+  *Done 2026-08-05.* The licence's named copyright holder is deliberate and does not breach
+  D-13 — see D-17.
+- ◐ **0.2 Toolchain.** TypeScript, Vite, Biome, Vitest, with scripts for typecheck, lint,
   format, test, and build.
   *Accepts:* a placeholder page builds and serves; `npm run verify` runs typecheck, lint,
   and tests and passes.
-- ☐ **0.3 Single-file build.** A second build target inlining all script, style, and assets
+  *Built 2026-08-05.* TypeScript 7 (D-16), Vite 8, Biome 2.5, Vitest 4. Both acceptance
+  criteria checked: the dev server serves the placeholder over HTTP, and `npm run verify`
+  passes locally and in CI. Biome additionally enforces the [DESIGN.md §1](DESIGN.md)
+  dependency rule as a lint error — checked by hand against deliberate violations at
+  several import depths, which leaves no trace in the tree; issue #7 tracks turning that
+  into an automated guard once the module directories exist. Issue #6 raises a question the
+  rule surfaces: `game/` will need the `Transport` type, which lives in `net/`, and task 1.1
+  is where that has to be settled.
+- ◐ **0.3 Single-file build.** A second build target inlining all script, style, and assets
   into one HTML document (D-12, R-1).
   *Accepts:* the produced file opens from `file://` on Windows and renders the placeholder;
   file size is reported by the build.
-- ☐ **0.4 Continuous integration.** GitHub Actions running the full gate on every pull
+  *Built 2026-08-05* — `dist-single/checkers.html`, 2.9 kB, self-contained, verified rendering
+  and executing from `file://`. `npm run build:single` reports size against the R-54 budget
+  and fails on any surviving external reference. Awaiting the end-of-phase live test.
+- ◐ **0.4 Continuous integration.** GitHub Actions running the full gate on every pull
   request; branch protection requiring it.
   *Accepts:* a deliberately failing test blocks a pull request; a passing one does not.
 - ☐ **0.5 Static deploy.** Publish the hosted build on merge to the default branch (R-2,
   R-61).
   *Accepts:* the placeholder is reachable at a public URL and updates on merge.
+  *Target is GitHub Pages (D-15).*
+
+**Live test at end of phase 0** — Forrest opens `dist-single/checkers.html` from the Windows
+desktop and the hosted URL in a browser, and confirms both render.
 
 ## Phase 1 — Walking skeleton
 

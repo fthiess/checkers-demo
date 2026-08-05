@@ -274,3 +274,85 @@ across sessions would cost more than it returns. The decision is revisited if th
 outgrows the demonstration — in particular, adopting the server transport of
 [DESIGN.md §9](DESIGN.md) would reintroduce a security and data-integrity surface that
 warrants the review pass.
+
+---
+
+## D-15 — GitHub Pages is the hosting target
+
+**Date:** 2026-08-05 · **Forrest's call**
+
+**Context.** R-2 requires the hosted build, and D-1 was chosen partly because it needed *no
+vendor decision before the first game could be played*. Phase 0.5 is where that deferral
+comes due. The options were GitHub Pages, Netlify, and Cloudflare Pages.
+
+**Decision.** GitHub Pages, deployed by the same GitHub Actions workflow that runs the gate.
+
+**Why.** No new account, no API credentials in repository secrets, and exactly one CI system
+to keep in sync. The repository is already on GitHub and already public (D-13), so Pages adds
+no new exposure and no new operational surface.
+
+**Consequences.** There are no per-PR deploy previews, which Netlify and Cloudflare would
+have given. For two people live-testing a demonstration this is a small loss: the branch is
+testable locally and `main` is testable at the public URL. The hosted build sits at a project
+subpath (`/checkers-demo/`), so all asset URLs are relative — which the single-file build
+needs anyway to work from `file://` (R-52).
+
+---
+
+## D-16 — TypeScript 7, the native compiler
+
+**Date:** 2026-08-05 · **Forrest's call**
+
+**Context.** At the time the toolchain was chosen, npm's `latest` for TypeScript was 7.0.2 —
+the native Go port, released 2026-07-08, reporting eight- to twelvefold faster builds and
+still invoked as `tsc`. The last JavaScript-based release was 6.0.3 from April 2026.
+
+**Decision.** TypeScript 7.
+
+**Why.** Every breaking change from 6 is something a greenfield ES2022 browser project would
+never use: `target: es5`, AMD/UMD/SystemJS modules, `baseUrl`, `moduleResolution: classic`,
+and the deprecated downlevel-iteration flags. Nothing else in the stack type-checks — Vite
+and Vitest strip types rather than checking them, and Biome does not type-check at all — so
+the blast radius is `tsc --noEmit` and the editor, which is about as contained as a compiler
+choice gets.
+
+**Consequences.** If the native compiler turns out to have a rough edge this project trips
+over, `@typescript/typescript6` installs the old compiler side by side as `tsc6` without
+disturbing anything else. The risk is bounded and the escape hatch is one line of
+`package.json`.
+
+---
+
+## D-17 — The licence keeps its named copyright holder
+
+**Date:** 2026-08-05 · **Forrest's call**
+
+**Context.** D-13 makes this a public repository with no personal information anywhere in
+it. `LICENSE` names a copyright holder, which is a real name in a public tree — an apparent
+contradiction that was left open at the end of the design session.
+
+**Decision.** The name stays.
+
+**Why.** A copyright holder is an assertion of authorship, not a disclosure: it is the one
+place in an open-source repository where a real name is doing necessary work, and it is
+already public on the account that owns the repository. D-13's rule is aimed at names that
+arrive incidentally — quoted from a bug report, embedded in a test fixture, carried in a
+commit message — and it stands unchanged everywhere else in the tree.
+
+---
+
+## N-1 — Rolldown ignores mutation of the output bundle
+
+**Date:** 2026-08-05
+
+**Note.** Vite 8 bundles with Rolldown rather than Rollup, and `build.rollupOptions` is now
+an alias for `build.rolldownOptions`. A Rollup-idiomatic plugin that re-keys the bundle map
+inside `generateBundle` — `delete bundle[old]` followed by `bundle[new] = asset` — does not
+work: Rolldown warns that assignment to the bundle variable is unsupported and *ignores the
+assignment while honouring the delete*, so the file silently disappears from the output. The
+single-file build produced an empty `dist-single/` for exactly this reason before the plugin
+was rewritten to rename on disk in `writeBundle`.
+
+**Why it is written down.** The failure is silent and the warning scrolls past in a
+successful-looking build. `vite-plugin-singlefile` itself works correctly under Rolldown;
+the landmine is in bundle-mutating plugins written from Rollup habits.
