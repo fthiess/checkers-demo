@@ -13,8 +13,8 @@ it, play. It is also published as a web page; the two are functionally identical
 
 ## Status
 
-**Design complete, implementation not started.** See [ROADMAP.md](ROADMAP.md) for what
-comes next.
+**Phase 0 — toolchain and delivery.** The application itself does not exist yet; what builds
+today is a placeholder page. See [ROADMAP.md](ROADMAP.md) for what comes next.
 
 ## The rules
 
@@ -44,6 +44,27 @@ friend, not with a stranger.
 
 Each of these disappears if the project later adopts the client/server transport described
 in [DESIGN.md §9](DESIGN.md), which the architecture is deliberately arranged to allow.
+
+## Development
+
+Node 22.12 or newer.
+
+```
+npm install
+npm run dev          # development server
+npm run verify       # type checking, lint, unit tests — the gate CI runs
+npm run build        # hosted build      -> dist/
+npm run build:single # self-contained    -> dist-single/checkers.html
+npm run format       # apply formatting and safe lint fixes
+```
+
+Both builds come from one source and one Vite config, keyed on `--mode`, so the two
+distribution forms cannot drift apart (D-12). `build:single` finishes by checking that the
+document reaches for nothing outside itself (R-1) and reporting its size against the
+one-megabyte attachment budget (R-54); it fails the build if either does not hold.
+
+[CLAUDE.md](CLAUDE.md) carries the standing rules for anyone — human or model — working in
+this repository.
 
 ## Accessibility
 

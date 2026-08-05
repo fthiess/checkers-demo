@@ -1,0 +1,39 @@
+name: Verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A pull request that gets a second push does not need the first run finished.
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Type checking, lint and formatting, and unit tests.
+      - run: npm run verify
+
+      # Both distribution forms are built on every pull request, because they are the
+      # deliverable (R-1, R-2) and a build that only happens at release time is a build that
+      # breaks at release time. `build:single` also runs the check that proves the file is
+      # self-contained and inside the R-54 size budget.
+      - run: npm run build
+
+      - run: npm run build:single
