@@ -44,13 +44,18 @@ it is expensive to retrofit.
   GitHub; no personal information anywhere in the tree or in commit messages (D-13).
   *Done 2026-08-05.* The licence's named copyright holder is deliberate and does not breach
   D-13 — see D-17.
-- ☑ **0.2 Toolchain.** TypeScript, Vite, Biome, Vitest, with scripts for typecheck, lint,
+- ◐ **0.2 Toolchain.** TypeScript, Vite, Biome, Vitest, with scripts for typecheck, lint,
   format, test, and build.
   *Accepts:* a placeholder page builds and serves; `npm run verify` runs typecheck, lint,
   and tests and passes.
-  *Done 2026-08-05.* TypeScript 7, Vite 8, Biome 2.5, Vitest 4 (D-16). Biome additionally
-  enforces the [DESIGN.md §1](DESIGN.md) dependency rule as a lint error, verified against a
-  deliberate violation in each restricted module.
+  *Built 2026-08-05.* TypeScript 7 (D-16), Vite 8, Biome 2.5, Vitest 4. Both acceptance
+  criteria checked: the dev server serves the placeholder over HTTP, and `npm run verify`
+  passes locally and in CI. Biome additionally enforces the [DESIGN.md §1](DESIGN.md)
+  dependency rule as a lint error — checked by hand against deliberate violations at
+  several import depths, which leaves no trace in the tree; issue #7 tracks turning that
+  into an automated guard once the module directories exist. Issue #6 raises a question the
+  rule surfaces: `game/` will need the `Transport` type, which lives in `net/`, and task 1.1
+  is where that has to be settled.
 - ◐ **0.3 Single-file build.** A second build target inlining all script, style, and assets
   into one HTML document (D-12, R-1).
   *Accepts:* the produced file opens from `file://` on Windows and renders the placeholder;

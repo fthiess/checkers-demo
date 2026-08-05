@@ -1,8 +1,8 @@
 /*
  * Baseline only. The board, themes, and colour selection arrive in Phases 3 and 4; what is
  * set here are the things that are expensive to retrofit — a readable measure, contrast that
- * passes WCAG 2.2 AA in both appearances, a visible focus ring, and honoured motion
- * preferences (R-45 to R-50).
+ * passes WCAG 2.2 AA in both appearances, a visible focus ring, and touch targets that are
+ * large enough (R-45, R-47, R-49, R-50), plus honoured motion preferences (R-30).
  */
 
 :root {

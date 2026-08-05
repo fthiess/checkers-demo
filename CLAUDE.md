@@ -41,6 +41,10 @@ Anything that needs to cross does so through `game/`. Biome enforces this as a l
 if you find yourself editing `engine/`, `game/`, or `ui/` in order to change transports,
 that is a design defect rather than unavoidable work — see [DESIGN.md §9](DESIGN.md).
 
+One open question, issue #6: the table forbids `game/` from importing `net/`, but the session
+state machine needs the `Transport` *type*, which is declared there. Settle it at task 1.1
+rather than working around the lint rule.
+
 ## Verification
 
 ```

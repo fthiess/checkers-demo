@@ -21,10 +21,19 @@ function renameHtmlOutput(to: string): Plugin {
     async writeBundle(options, bundle) {
       const dir = options.dir;
       if (dir === undefined) return;
-      for (const fileName of Object.keys(bundle)) {
-        if (!fileName.endsWith(".html")) continue;
-        await rename(join(dir, fileName), join(dir, to));
+
+      const documents = Object.keys(bundle).filter((name) => name.endsWith(".html"));
+      // Renaming several documents to one name would silently leave only the last. If a
+      // second HTML entry is ever added, this has to become a mapping rather than a name.
+      if (documents.length > 1) {
+        throw new Error(
+          `Expected one HTML document to rename to ${to}, found ${documents.length}: ${documents.join(", ")}`,
+        );
       }
+
+      const document = documents[0];
+      if (document === undefined || document === to) return;
+      await rename(join(dir, document), join(dir, to));
     },
   };
 }

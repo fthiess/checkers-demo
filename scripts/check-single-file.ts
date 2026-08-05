@@ -21,8 +21,9 @@ async function main(): Promise<number> {
       readFile(path, "utf8"),
       stat(path).then((info) => info.size),
     ]);
-  } catch {
-    stderr.write(`Cannot read ${path}. Run \`npm run build:single\` first.\n`);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    stderr.write(`Cannot read ${path}: ${reason}\nRun \`npm run build:single\` first.\n`);
     return 1;
   }
 

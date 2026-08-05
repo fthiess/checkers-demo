@@ -48,6 +48,56 @@ describe("findExternalReferences", () => {
     ]);
   });
 
+  // A srcset is a comma-separated candidate list. Checking it as one string means a leading
+  // data: URI vouches for every candidate behind it, and a genuinely external image ships.
+  it("checks every candidate in a srcset, not just the first", () => {
+    const html = `<img srcset="data:image/png;base64,AAAA 320w, board-2x.png 640w">`;
+    expect(findExternalReferences(html)).toEqual([{ kind: "image srcset", url: "board-2x.png" }]);
+  });
+
+  it("accepts a srcset whose candidates are all inline", () => {
+    const html = `<img srcset="data:image/png;base64,AAAA 320w, data:image/png;base64,BBBB 640w">`;
+    expect(findExternalReferences(html)).toEqual([]);
+  });
+
+  it("reports every external candidate in a srcset", () => {
+    const html = `<img srcset="a.png 1x, b.png 2x">`;
+    expect(findExternalReferences(html)).toEqual([
+      { kind: "image srcset", url: "a.png" },
+      { kind: "image srcset", url: "b.png" },
+    ]);
+  });
+
+  // srcset candidates may be separated by a comma with no following space, and a candidate
+  // may carry no descriptor at all — both forms have to survive the split.
+  it("splits srcset candidates that have no space after the comma", () => {
+    const html = `<img srcset="a.png 1x,b.png 2x">`;
+    expect(findExternalReferences(html)).toEqual([
+      { kind: "image srcset", url: "a.png" },
+      { kind: "image srcset", url: "b.png" },
+    ]);
+  });
+
+  it("handles srcset candidates with no descriptor", () => {
+    const html = `<img srcset="a.png, b.png">`;
+    expect(findExternalReferences(html)).toEqual([
+      { kind: "image srcset", url: "a.png" },
+      { kind: "image srcset", url: "b.png" },
+    ]);
+  });
+
+  it("does not treat the commas inside a data URI as candidate separators", () => {
+    const html = `<source srcset="data:image/svg+xml,%3Csvg%3E%3C/svg%3E 1x">`;
+    expect(findExternalReferences(html)).toEqual([]);
+  });
+
+  // The document is scanned whole, and the inlined bundle is part of it. A template literal
+  // that builds a url() at runtime is not a reference the browser resolves at load.
+  it("does not mistake a template literal in inlined script for an external url()", () => {
+    const html = `<script>el.style.backgroundImage = \`url(\${dataUri})\`;</script>`;
+    expect(findExternalReferences(html)).toEqual([]);
+  });
+
   it("ignores anchors, which are the player's choice to follow rather than a subresource", () => {
     const html = `<a href="https://github.com/fthiess/checkers-demo">How this is built</a>`;
     expect(findExternalReferences(html)).toEqual([]);
