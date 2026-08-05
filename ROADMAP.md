@@ -1,0 +1,248 @@
+# Roadmap — Checkers Demo
+
+**Companion documents:** [REQUIREMENTS.md](REQUIREMENTS.md) · [DESIGN.md](DESIGN.md) · [DECISIONS.md](DECISIONS.md)
+
+This is the guide to what comes next and in what order. It is updated at the end of every
+session: statuses change, discoveries are folded in, and anything deferred leaves behind a
+GitHub issue rather than a note here.
+
+**Status legend:** ☐ not started · ◐ in progress · ☑ complete and live-tested
+
+Each phase is a session or a small number of sessions. Tasks are sized for a single focused
+pass — at most about five files, with acceptance criteria that fit in three bullets, each
+leaving the repository green. A task title containing "and" is usually two tasks.
+
+The sequence follows a walking-skeleton approach: prove the riskiest end-to-end path first,
+then flesh it out. The riskiest path here is **connectivity**, not rules, which is why
+Phase 1 connects two browsers before the engine exists.
+
+---
+
+## Phase overview
+
+| Phase | Theme | Status |
+| --- | --- | --- |
+| 0 | Repository, toolchain, CI, deploy | ☐ |
+| 1 | Walking skeleton — two browsers connected | ☐ |
+| 2 | Rules engine | ☐ |
+| 3 | Board interface and input | ☐ |
+| 4 | Animation, colour, and theme | ☐ |
+| 5 | Game lifecycle | ☐ |
+| 6 | AI opponent | ☐ |
+| 7 | Hardening and acceptance | ☐ |
+
+---
+
+## Phase 0 — Repository, toolchain, CI, deploy
+
+Establishes the ground everything else stands on. Nothing here is interesting, and all of
+it is expensive to retrofit.
+
+- ☐ **0.1 Repository and design documents.** Initialise the repository, publish the four
+  design documents, add a README, `.gitignore`, and licence.
+  *Accepts:* repository exists at `fthiess/checkers-demo`; documents render correctly on
+  GitHub; no personal information anywhere in the tree or in commit messages (D-13).
+- ☐ **0.2 Toolchain.** TypeScript, Vite, Biome, Vitest, with scripts for typecheck, lint,
+  format, test, and build.
+  *Accepts:* a placeholder page builds and serves; `npm run verify` runs typecheck, lint,
+  and tests and passes.
+- ☐ **0.3 Single-file build.** A second build target inlining all script, style, and assets
+  into one HTML document (D-12, R-1).
+  *Accepts:* the produced file opens from `file://` on Windows and renders the placeholder;
+  file size is reported by the build.
+- ☐ **0.4 Continuous integration.** GitHub Actions running the full gate on every pull
+  request; branch protection requiring it.
+  *Accepts:* a deliberately failing test blocks a pull request; a passing one does not.
+- ☐ **0.5 Static deploy.** Publish the hosted build on merge to the default branch (R-2,
+  R-61).
+  *Accepts:* the placeholder is reachable at a public URL and updates on merge.
+
+## Phase 1 — Walking skeleton
+
+One thin end-to-end thread: two browsers, in two places, exchanging a message. No rules, no
+animation, no polish. This phase exists to discover the connection problems early, while
+there is nothing else in the way.
+
+- ☐ **1.1 Transport and message contracts.** Define `Transport`, `Signaler`, the message
+  schema, sequence numbers, and the codec ([DESIGN.md §4](DESIGN.md)).
+  *Accepts:* interfaces and schema compile with no implementation; codec round-trips under
+  unit test.
+- ☐ **1.2 WebRTC transport.** Implement `WebRtcTransport` with non-trickle ICE against a
+  public STUN server.
+  *Accepts:* two browser tabs establish a data channel; status transitions are observable.
+- ☐ **1.3 Manual signaling.** Offer and answer blocks, compressed and base64url-encoded,
+  with copy controls and whitespace-tolerant paste (R-5, R-6).
+  *Accepts:* a block survives a round trip through an email client without corruption;
+  block length is recorded.
+- ☐ **1.4 Skeleton screen.** A static board with one draggable token whose position is
+  echoed to the other side. No legality checking.
+  *Accepts:* two people in two locations move the token and both see it; connection failure
+  is reported plainly within a bounded time (R-9).
+- ☐ **1.5 Connection-failure and privacy copy.** Plain-language guidance at every step
+  (R-7), the network-address disclosure notice (R-56), and a clear unreachable-network
+  message.
+  *Accepts:* the flow is comprehensible to someone who has not read this document.
+
+**Live test at end of phase 1** — Forrest and a second person, on two networks, connect and
+move the token. This is the phase most likely to surface something the design did not
+anticipate.
+
+## Phase 2 — Rules engine
+
+A pure module with no rendering, network, storage, or timing dependencies (R-59). Built
+after the skeleton because it carries almost no unknown risk — only work.
+
+- ☐ **2.1 Board representation and geometry.** The 32-square array, piece encoding, the
+  index-to-coordinate mapping, and the opening position ([DESIGN.md §3.1](DESIGN.md)).
+  *Accepts:* the numbering is asserted against a published reference diagram, not merely
+  against the formula.
+- ☐ **2.2 Simple moves.** Generation and application for men and kings, including crowning
+  and turn end (R-43, [DESIGN.md §3.3](DESIGN.md)).
+  *Accepts:* opening position yields exactly seven legal moves; crowning ends the turn.
+- ☐ **2.3 Captures and chains.** Jump generation, recursive chaining, no double-jumping a
+  piece, chain termination on crowning.
+  *Accepts:* known multi-jump positions generate the expected chains.
+- ☐ **2.4 House rules.** Chain prefixes emitted as first-class moves (D-3, D-8); no
+  compulsion to capture or to take the longest (R-39, R-40, R-41).
+  *Accepts:* a position with a two-jump chain generates both the one-jump and two-jump
+  moves, plus every non-capturing alternative.
+- ☐ **2.5 Termination.** Loss on having no legal move, covering both no-pieces and blocked
+  (R-43).
+  *Accepts:* a constructed blocked position with pieces remaining reports a loss.
+- ☐ **2.6 Property-based tests.** Piece conservation, deterministic move ordering,
+  application never producing an inconsistent position.
+  *Accepts:* properties hold across generated positions.
+- ☐ **2.7 Notation and PDN export.** Short form, explicit full path where ambiguous, file
+  export with tag pairs and result (R-24).
+  *Accepts:* a corpus of recorded games replays move by move with every move found legal.
+- ☐ **2.8 State hash.** Canonical serialisation and FNV-1a hash ([DESIGN.md §4.3](DESIGN.md)).
+  *Accepts:* identical positions hash identically; any single-square difference does not.
+
+## Phase 3 — Board interface and input
+
+Accessibility is built here, not retrofitted in Phase 7. Retrofitting it is the single
+most reliable way to end up not having it.
+
+- ☐ **3.1 Board rendering.** Sixty-four squares, pieces positioned by transform, per-client
+  orientation as a render-time mapping (R-11, R-12, [DESIGN.md §6.1](DESIGN.md)).
+  *Accepts:* both clients render the same position with each player's pieces nearest them;
+  the engine and protocol remain in canonical numbering.
+- ☐ **3.2 Pointer input.** Drag-and-drop and click-then-click sharing one selection model
+  (R-13).
+  *Accepts:* both input styles produce identical results and cannot disagree.
+- ☐ **3.3 Legal-move indication.** Destination highlighting, and full capture-chain preview
+  for chain-initiating moves (R-14).
+  *Accepts:* a multi-jump chain is shown in full before the first hop is committed.
+- ☐ **3.4 Keyboard operation.** Grid semantics, arrow navigation, select and place, cancel,
+  visible focus (R-46, R-47).
+  *Accepts:* a complete game is playable using only the keyboard.
+- ☐ **3.5 Screen-reader announcements.** Square labels and a live region for moves, turn
+  changes, connection status, and result (R-48).
+  *Accepts:* a move is announced in words that identify the piece, origin, destination, and
+  any captures.
+- ☐ **3.6 Move wiring.** Connect the interface to the engine and the transport; both clients
+  validate inbound moves and compare state hashes (R-57, R-35).
+  *Accepts:* an illegal inbound move is rejected; an injected divergence halts play with a
+  clear message.
+
+**Live test at end of phase 3** — a complete, rules-correct game played between two
+locations, unanimated.
+
+## Phase 4 — Animation, colour, and theme
+
+The phase that makes it a toy rather than a demonstration.
+
+- ☐ **4.1 Movement and capture animation.** Eased slides, arced jumps, captured pieces
+  travelling to the tray (R-29, R-18).
+  *Accepts:* sustained 60fps on ordinary laptop hardware (R-53).
+- ☐ **4.2 Chain and crowning animation.** Continuous multi-jump sequencing with a beat
+  between hops; the crowning flourish.
+  *Accepts:* a four-jump chain is readable as four distinct events.
+- ☐ **4.3 Feedback animation.** Illegal-move shake, turn-change emphasis, game-end sweep
+  (R-15).
+  *Accepts:* an illegal drop changes no state.
+- ☐ **4.4 Reduced motion.** A tested peer path for `prefers-reduced-motion`, not a
+  disabling switch (R-30).
+  *Accepts:* every animated event has a non-motion equivalent that conveys the same
+  information.
+- ☐ **4.5 Colour selection.** Presets, free picker, live contrast validation, joiner-yields
+  conflict resolution (R-25, R-26, D-9).
+  *Accepts:* a failing colour is refused at selection with an explanation.
+- ☐ **4.6 Non-colour side marker.** A persistent marker on one logical side's pieces (R-27).
+  *Accepts:* sides remain distinguishable in a greyscale screenshot.
+- ☐ **4.7 Board themes.** A token set per theme, chosen locally, AA-validated in light and
+  dark (R-28, R-49).
+  *Accepts:* each theme passes contrast checks in both appearances.
+
+## Phase 5 — Game lifecycle
+
+Everything around the game rather than in it.
+
+- ☐ **5.1 Session state machine.** Setup, connecting, playing, game over; players, turn,
+  result ([DESIGN.md §5](DESIGN.md)).
+  *Accepts:* every terminal reason is representable and rendered.
+- ☐ **5.2 Resign and draw.** Resignation with confirmation; draw offer, accept, decline,
+  re-offer; the forty-move advisory (R-19, R-20, R-21, D-4).
+  *Accepts:* a declined offer may be made again; the advisory never ends a game.
+- ☐ **5.3 Rematch and series.** Swap the first mover, preserve identities and colours,
+  maintain a session score (R-22, R-23).
+  *Accepts:* three consecutive games alternate the first mover and the score is correct.
+- ☐ **5.4 Persistence and recovery.** Per-move local persistence; resume by re-handshake;
+  `sync` reconciliation to the longer history; halt on genuine divergence (R-33 to R-35).
+  *Accepts:* a reload mid-game resumes at the correct position; a fabricated divergence
+  halts play.
+- ☐ **5.5 Connection status.** Disconnection reported promptly and distinguishably from an
+  opponent who is thinking (R-36).
+  *Accepts:* pulling the network surfaces a status change within a few seconds.
+- ☐ **5.6 PDN export.** Download a completed game (R-24).
+  *Accepts:* the exported file is accepted by an independent PDN reader.
+- ☐ **5.7 Emotes.** A small fixed reaction set, delivered over the existing protocol (R-32).
+  *Accepts:* no free-text path exists.
+
+## Phase 6 — AI opponent
+
+- ☐ **6.1 Trivial opponent.** Prefer the longest capture, otherwise move at random from a
+  seeded source (R-37, D-10).
+  *Accepts:* a seeded game is reproducible; the AI never produces a move outside the engine's
+  legal list.
+- ☐ **6.2 Single-player entry.** Start a game against the computer with no connection step,
+  reusing the same board and session machinery (R-38).
+  *Accepts:* the board, animation, and accessibility paths behave identically to networked
+  play.
+
+## Phase 7 — Hardening and acceptance
+
+- ☐ **7.1 End-to-end tests.** Two browser contexts driven through a complete game with the
+  paste exchange automated.
+  *Accepts:* the suite runs in CI and fails when the connection flow breaks.
+- ☐ **7.2 Accessibility audit.** Automated checks plus a manual keyboard and screen-reader
+  pass against R-45 to R-50.
+  *Accepts:* no AA violations; the acceptance journey in
+  [REQUIREMENTS.md §7](REQUIREMENTS.md) completes by keyboard with a screen reader.
+- ☐ **7.3 Cross-browser pass.** Chrome, Edge, Firefox, and Safari on Windows and macOS
+  (R-51, R-52).
+  *Accepts:* connection, play, and animation verified on each; deviations recorded as issues.
+- ☐ **7.4 Single-file verification.** The inlined build opened from `file://` on both
+  platforms, within the size budget (R-1, R-54).
+  *Accepts:* a complete networked game played entirely from local files on both platforms.
+- ☐ **7.5 Acceptance.** The journey in [REQUIREMENTS.md §7](REQUIREMENTS.md), performed by
+  two people who have not read this repository.
+  *Accepts:* they connect and finish a game without assistance.
+
+---
+
+## Carried forward
+
+Deferred work becomes a GitHub issue in this repository at the moment it is discovered, not
+at session close. The table in [REQUIREMENTS.md §8](REQUIREMENTS.md) is the standing list of
+things already known to be out of scope; the largest of them is the client/server transport
+described in [DESIGN.md §9](DESIGN.md), which unblocks spectators, correspondence play, room
+codes, reconnection without re-handshake, and anti-cheat in one move.
+
+## Session log
+
+Updated at the close of each session.
+
+| Date | Session | Outcome |
+| --- | --- | --- |
+| 2026-08-05 | Design | Requirements, design, decisions, and roadmap written and approved. D-1 through D-14 recorded. |
