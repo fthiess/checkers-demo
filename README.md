@@ -1,5 +1,7 @@
 # Checkers Demo
 
+[![Verify](https://github.com/fthiess/checkers-demo/actions/workflows/verify.yml/badge.svg)](https://github.com/fthiess/checkers-demo/actions/workflows/verify.yml)
+
 A two-player game of checkers played over the internet, between two browsers, with no
 server in the middle.
 
@@ -13,8 +15,11 @@ it, play. It is also published as a web page; the two are functionally identical
 
 ## Status
 
-**Phase 0 — toolchain and delivery.** The application itself does not exist yet; what builds
-today is a placeholder page. See [ROADMAP.md](ROADMAP.md) for what comes next.
+**Phase 0 — toolchain and delivery.** The application itself does not exist yet; what is
+published today is a placeholder page. See [ROADMAP.md](ROADMAP.md) for what comes next.
+
+Live at **<https://fthiess.github.io/checkers-demo/>**, redeployed from `main` whenever the
+verification gate passes.
 
 ## The rules
 
