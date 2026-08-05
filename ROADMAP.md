@@ -22,7 +22,7 @@ Phase 1 connects two browsers before the engine exists.
 
 | Phase | Theme | Status |
 | --- | --- | --- |
-| 0 | Repository, toolchain, CI, deploy | ◐ |
+| 0 | Repository, toolchain, CI, deploy | ☑ |
 | 1 | Walking skeleton — two browsers connected | ☐ |
 | 2 | Rules engine | ☐ |
 | 3 | Board interface and input | ☐ |
@@ -44,7 +44,7 @@ it is expensive to retrofit.
   GitHub; no personal information anywhere in the tree or in commit messages (D-13).
   *Done 2026-08-05.* The licence's named copyright holder is deliberate and does not breach
   D-13 — see D-17.
-- ◐ **0.2 Toolchain.** TypeScript, Vite, Biome, Vitest, with scripts for typecheck, lint,
+- ☑ **0.2 Toolchain.** TypeScript, Vite, Biome, Vitest, with scripts for typecheck, lint,
   format, test, and build.
   *Accepts:* a placeholder page builds and serves; `npm run verify` runs typecheck, lint,
   and tests and passes.
@@ -56,14 +56,15 @@ it is expensive to retrofit.
   into an automated guard once the module directories exist. Issue #6 raises a question the
   rule surfaces: `game/` will need the `Transport` type, which lives in `net/`, and task 1.1
   is where that has to be settled.
-- ◐ **0.3 Single-file build.** A second build target inlining all script, style, and assets
+- ☑ **0.3 Single-file build.** A second build target inlining all script, style, and assets
   into one HTML document (D-12, R-1).
   *Accepts:* the produced file opens from `file://` on Windows and renders the placeholder;
   file size is reported by the build.
   *Built 2026-08-05* — `dist-single/checkers.html`, 2.9 kB, self-contained, verified rendering
   and executing from `file://`. `npm run build:single` reports size against the R-54 budget
-  and fails on any surviving external reference. Awaiting the end-of-phase live test.
-- ◐ **0.4 Continuous integration.** GitHub Actions running the full gate on every pull
+  and fails on any surviving external reference. Live-tested by double-click from Windows
+  Explorer, which is the path a person opening an email attachment actually takes.
+- ☑ **0.4 Continuous integration.** GitHub Actions running the full gate on every pull
   request; branch protection requiring it.
   *Accepts:* a deliberately failing test blocks a pull request; a passing one does not.
   *Built 2026-08-05.* Both halves proved: a throwaway pull request carrying one deliberate
@@ -74,7 +75,7 @@ it is expensive to retrofit.
   "verified". Not separately proved: that a direct push to `main` is rejected — a `--dry-run`
   push never reaches the server's receive path, and pushing for real to find out would have
   left a junk commit that force-push is now disabled to remove.
-- ◐ **0.5 Static deploy.** Publish the hosted build on merge to the default branch (R-2,
+- ☑ **0.5 Static deploy.** Publish the hosted build on merge to the default branch (R-2,
   R-61).
   *Accepts:* the placeholder is reachable at a public URL and updates on merge.
   *Built 2026-08-05.* GitHub Pages (D-15) at <https://fthiess.github.io/checkers-demo/>. The
@@ -85,14 +86,11 @@ it is expensive to retrofit.
   that reports "Running from a local file" under `file://`, so both distribution forms are
   confirmed working and correctly distinguishable (R-52).
 
-**Live test at end of phase 0** — everything above stays at in-progress until this happens,
-because the legend reserves the tick for work that has been live-tested. Two things to check:
-
-1. Open <https://fthiess.github.io/checkers-demo/> and confirm the placeholder renders.
-2. Run `npm run build:single`, then double-click `dist-single/checkers.html` from Windows
-   Explorer and confirm it renders the same page. This is the one that matters — R-1 is the
-   requirement the whole deliverable rests on, and a browser opening a local file is the only
-   thing that can really confirm it.
+**Live test at end of phase 0 — passed 2026-08-05.** The single-file build was produced with
+`npm run build:single` and opened by double-click from Windows Explorer; it renders the
+placeholder. The hosted URL was confirmed in the same session, rendering and running its
+script. R-1 and R-2 are both demonstrated on real browsers rather than inferred from the
+build, which is what the tick above now means.
 
 ## Phase 1 — Walking skeleton
 
@@ -283,4 +281,4 @@ Updated at the close of each session.
 | Date | Session | Outcome |
 | --- | --- | --- |
 | 2026-08-05 | Design | Requirements, design, decisions, and roadmap written and approved. D-1 through D-14 recorded. |
-| 2026-08-05 | Phase 0 | Toolchain, both build outputs, CI gate, branch protection, and the Pages deploy (#4, #8). D-15 through D-18 and N-1 recorded. Issues #6 and #7 opened from the code review. Awaiting the phase live test. |
+| 2026-08-05 | Phase 0 | Toolchain, both build outputs, CI gate, branch protection, and the Pages deploy (#4, #8, #9). D-15 through D-18 and N-1 recorded. Issues #6 and #7 opened from the code review. Live-tested and complete. |
