@@ -128,10 +128,14 @@ likely to turn up something the design did not anticipate.
 A pure module with no rendering, network, storage, or timing dependencies (R-59). Built
 after the skeleton because it carries almost no unknown risk — only work.
 
-- ☐ **2.1 Board representation and geometry.** The 32-square array, piece encoding, the
+- ☑ **2.1 Board representation and geometry.** The 32-square array, piece encoding, the
   index-to-coordinate mapping, and the opening position ([DESIGN.md §3.1](DESIGN.md)).
   *Accepts:* the numbering is asserted against a published reference diagram, not merely
   against the formula.
+  *Built 2026-08-06.* `src/engine/board.ts` — piece codes, the `Position` type, the
+  index-to-coordinate formula, and the opening position constant. `board.test.ts` checks
+  eight squares' coordinates against the published PDN/checkers numbering diagram
+  (independent of the formula under test), plus opening-position placement and shape.
 - ☐ **2.2 Simple moves.** Generation and application for men and kings, including crowning
   and turn end (R-43, [DESIGN.md §3.3](DESIGN.md)).
   *Accepts:* opening position yields exactly seven legal moves; crowning ends the turn.
