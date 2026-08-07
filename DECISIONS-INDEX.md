@@ -23,7 +23,7 @@ Update this index in the same pull request as any append to the log.
 | **Build and distribution** | [D-12](DECISIONS.md#d-12--two-build-outputs-from-one-source) → [N-1](DECISIONS.md#n-1--rolldown-ignores-mutation-of-the-output-bundle) *(landmine)* |
 | **Hosting and deploy** | [D-15](DECISIONS.md#d-15--github-pages-is-the-hosting-target) |
 | **Repository, privacy, and licence** | [D-13](DECISIONS.md#d-13--repository-fthiesscheckers-demo-public) → [D-17](DECISIONS.md#d-17--the-licence-keeps-its-named-copyright-holder) → [D-19](DECISIONS.md#d-19--the-project-is-delegated-and-decisions-are-attributed-by-role) *(current)* |
-| **Merge policy and protection** | [D-18](DECISIONS.md#d-18--main-is-protected-admins-included) → [D-19](DECISIONS.md#d-19--the-project-is-delegated-and-decisions-are-attributed-by-role) *(current)* |
+| **Merge policy and protection** | [D-18](DECISIONS.md#d-18--main-is-protected-admins-included) → [N-2](DECISIONS.md#n-2--branch-protection-did-not-block-a-merge-with-no-reported-status-check) → [D-19](DECISIONS.md#d-19--the-project-is-delegated-and-decisions-are-attributed-by-role) *(current, but see open questions)* |
 | **Process and methodology** | [D-14](DECISIONS.md#d-14--a-compressed-design-stage) → [D-20](DECISIONS.md#d-20--the-vendored-methodology-is-the-projects-own-and-no-longer-tracks-its-upstream) *(current)* |
 
 ## Landmines
@@ -41,6 +41,10 @@ Decisions whose consequences bite silently, worth knowing before you touch the r
   peer-to-peer transport was chosen on the explicit condition that moving to a client/server
   transport stays additive. Editing `engine/`, `game/`, or `ui/` to add a server is a design
   defect, not unavoidable work; [DESIGN.md §9](DESIGN.md) is the written contract.
+- **[N-2](DECISIONS.md#n-2--branch-protection-did-not-block-a-merge-with-no-reported-status-check)**
+  — CI did not trigger and branch protection did not block the resulting unverified merge.
+  Root cause undiagnosed; merge-on-green (D-19) should not be relied on until
+  [issue #14](https://github.com/fthiess/checkers-demo/issues/14) is resolved.
 
 ## Open questions
 
@@ -49,3 +53,6 @@ Decisions whose consequences bite silently, worth knowing before you touch the r
   settled rather than worked around.
 - **[Issue #7](https://github.com/fthiess/checkers-demo/issues/7)** — the dependency rule has
   no automated guard until the module directories exist.
+- **[Issue #14](https://github.com/fthiess/checkers-demo/issues/14)** — CI is not triggering
+  and branch protection let an unverified merge through. Needs the repository owner's admin
+  access to Settings → Actions and Settings → Branches to diagnose.
