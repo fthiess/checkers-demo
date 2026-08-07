@@ -1,9 +1,10 @@
 /**
- * Simple (non-capture) move generation and application (DESIGN.md §3.2-3.3, R-43).
+ * Move generation and application (DESIGN.md §3.2-3.3, R-43).
  *
- * Capture and chain generation is task 2.3 and deliberately not implemented here; this
- * module only walks the "adjacent vacant square" half of the per-direction check the
- * design describes.
+ * Capture is not compulsory (R-39, R-40, R-41), so every prefix of every jump chain is
+ * itself a legal move and appears in the generated list alongside ordinary simple moves
+ * (D-3, D-8) -- the recursive search below emits a move at each hop before exploring
+ * further, rather than only returning maximal chains.
  */
 
 import {
@@ -85,9 +86,52 @@ export function generateMoves(position: Position): Move[] {
       const promotes = isMan(piece) && destRow === farRankRowFor(sideOf(piece));
       moves.push({ from, path: [to], captured: [], promotes });
     }
+
+    const working = Int8Array.from(position.squares);
+    working[from] = EMPTY;
+    exploreJumps(working, from, from, piece, [], [], moves);
   }
 
   return moves;
+}
+
+// Recursive jump search. `working` is mutated to remove a captured piece for the duration
+// of the branch that captures it, then restored on backtrack, so a piece cannot be jumped
+// twice within one chain (DESIGN.md §3.2) without hiding it from sibling branches.
+function exploreJumps(
+  working: Int8Array,
+  origin: SquareIndex,
+  currentSquare: SquareIndex,
+  piece: number,
+  path: readonly SquareIndex[],
+  captured: readonly SquareIndex[],
+  moves: Move[],
+): void {
+  const { row, col } = squareToCoordinates(currentSquare);
+  const side = sideOf(piece);
+
+  for (const { dr, dc } of directionsFor(piece)) {
+    const over = coordinatesToSquareIndex(row + dr, col + dc);
+    if (over === undefined) continue;
+    const overPiece = working[over] ?? EMPTY;
+    if (overPiece === EMPTY || sideOf(overPiece) === side) continue;
+
+    const landRow = row + 2 * dr;
+    const landing = coordinatesToSquareIndex(landRow, col + 2 * dc);
+    if (landing === undefined || (working[landing] ?? EMPTY) !== EMPTY) continue;
+
+    const newPath = [...path, landing];
+    const newCaptured = [...captured, over];
+    const promotes = isMan(piece) && landRow === farRankRowFor(side);
+    moves.push({ from: origin, path: newPath, captured: newCaptured, promotes });
+
+    // Crowning ends the chain immediately, even mid-sequence (DESIGN.md §3.3).
+    if (promotes) continue;
+
+    working[over] = EMPTY;
+    exploreJumps(working, origin, landing, piece, newPath, newCaptured, moves);
+    working[over] = overPiece;
+  }
 }
 
 export function applyMove(position: Position, move: Move): Position {
