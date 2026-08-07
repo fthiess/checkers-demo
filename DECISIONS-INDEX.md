@@ -6,7 +6,8 @@ Read this first, then jump to the few entries that govern the surface you are ab
 Do not read the full log into context — that is the whole point of this file.
 
 `D-n` are design decisions; `N-n` are implementation notes. Where a subsystem has a chain, the
-last entry is the currently-authoritative one. Nothing has been superseded yet.
+last entry is the currently-authoritative one. N-2 was retracted by N-3 as a false alarm —
+see the merge policy row below.
 
 Update this index in the same pull request as any append to the log.
 
@@ -23,7 +24,7 @@ Update this index in the same pull request as any append to the log.
 | **Build and distribution** | [D-12](DECISIONS.md#d-12--two-build-outputs-from-one-source) → [N-1](DECISIONS.md#n-1--rolldown-ignores-mutation-of-the-output-bundle) *(landmine)* |
 | **Hosting and deploy** | [D-15](DECISIONS.md#d-15--github-pages-is-the-hosting-target) |
 | **Repository, privacy, and licence** | [D-13](DECISIONS.md#d-13--repository-fthiesscheckers-demo-public) → [D-17](DECISIONS.md#d-17--the-licence-keeps-its-named-copyright-holder) → [D-19](DECISIONS.md#d-19--the-project-is-delegated-and-decisions-are-attributed-by-role) *(current)* |
-| **Merge policy and protection** | [D-18](DECISIONS.md#d-18--main-is-protected-admins-included) → [D-19](DECISIONS.md#d-19--the-project-is-delegated-and-decisions-are-attributed-by-role) *(current)* |
+| **Merge policy and protection** | [D-18](DECISIONS.md#d-18--main-is-protected-admins-included) → ~~[N-2](DECISIONS.md#n-2--branch-protection-did-not-block-a-merge-with-no-reported-status-check)~~ → [N-3](DECISIONS.md#n-3--n-2-was-a-false-alarm-the-check-had-already-passed) → [D-19](DECISIONS.md#d-19--the-project-is-delegated-and-decisions-are-attributed-by-role) *(current)* |
 | **Process and methodology** | [D-14](DECISIONS.md#d-14--a-compressed-design-stage) → [D-20](DECISIONS.md#d-20--the-vendored-methodology-is-the-projects-own-and-no-longer-tracks-its-upstream) *(current)* |
 
 ## Landmines
@@ -41,7 +42,6 @@ Decisions whose consequences bite silently, worth knowing before you touch the r
   peer-to-peer transport was chosen on the explicit condition that moving to a client/server
   transport stays additive. Editing `engine/`, `game/`, or `ui/` to add a server is a design
   defect, not unavoidable work; [DESIGN.md §9](DESIGN.md) is the written contract.
-
 ## Open questions
 
 - **[Issue #6](https://github.com/fthiess/checkers-demo/issues/6)** — `DESIGN.md` §1's diagram

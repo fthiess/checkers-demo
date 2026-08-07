@@ -389,6 +389,66 @@ right trade for a public repository whose commit SHAs are cited from issues and 
 it. It is recorded here because that is the only place it can be. If a later session finds
 merge-on-green behaving as though the gate were advisory, check the protection first.
 
+*Later updated by: N-2.*
+
+---
+
+## N-2 — Branch protection did not block a merge with no reported status check
+
+**Date:** 2026-08-06
+
+**Note.** On a second collaborator's first session, opening pull request #13 did not
+trigger the `Verify` workflow's `pull_request` event, and merging it did not trigger the
+`push` event on `main` either — despite every prior PR and push in this repository's
+history triggering `Verify` within about 20 seconds. The `verify` check therefore never
+reported. Despite D-18's `enforce_admins` configuration, `gh pr merge` completed the merge
+anyway with no error, moving `mergeStateStatus` from `BLOCKED` straight to `MERGED`. A full
+local run of `npm run verify`, `npm run build`, and `npm run build:single` on the resulting
+`main` (commit 6c3cff9) confirmed the merged code was sound, but the protection did not do
+the job D-18 records for it.
+
+**Why it is written down.** D-18 names this exact failure mode as the thing to check for:
+"if a later session finds merge-on-green behaving as though the gate were advisory, check
+the protection first." This entry is that check, and it did not turn up clean. Root cause
+is undiagnosed — it requires the repository owner's admin access to Settings → Actions and
+Settings → Branches, which a collaborator does not have. [Issue #14][i14] tracks it.
+
+**Consequences.** Until issue #14 is resolved and confirmed, merge-on-green (D-19) should
+not be relied upon. Treat every merge as needing the session owner's explicit go-ahead
+regardless of change tier.
+
+[i14]: https://github.com/fthiess/checkers-demo/issues/14
+
+*Later updated by: N-3 — this entry's diagnosis was incorrect; see N-3.*
+
+---
+
+## N-3 — N-2 was a false alarm; the check had already passed
+
+**Date:** 2026-08-07
+
+**Note.** N-2 concluded that branch protection let PR #13 merge despite the `verify` check
+never having reported. Closer inspection of the run's own timestamps shows this was wrong:
+the `pull_request` run for that branch (run 31130882535) completed successfully at
+`23:25:00Z`, nearly two minutes before the merge at `23:26:57Z`. The check had reported;
+branch protection worked correctly. What actually happened was a several-minute delay
+between a run completing and it becoming visible via `gh api .../actions/runs` and the
+PR's Checks tab — the session that wrote N-2 diagnosed from that stale listing rather than
+the run's actual state, and [issue #14][i14] was filed on the same mistaken premise.
+
+**Why it is written down.** N-2 and issue #14 both asserted a broken gate, in writing, with
+specifics. Neither held up. The record should say so as plainly as it asserted the
+original claim — a later session skimming the index should not be left trusting a retracted
+finding because only the retraction is quiet.
+
+**Consequences.** Merge-on-green (D-19) is not suspended after all; there is no evidence
+D-18's protection needs attention. Issue #14 is closed. If a future session sees the same
+symptom — a PR shows no checks in the listing API or the Checks tab — check the run's own
+`created_at`/`updated_at` timestamps before concluding CI didn't run; the listing surfaces
+can lag behind a run's actual completion by a few minutes.
+
+[i14]: https://github.com/fthiess/checkers-demo/issues/14
+
 ---
 
 ## D-19 — The project is delegated, and decisions are attributed by role
