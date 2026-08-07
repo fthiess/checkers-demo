@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BLACK_MAN,
   BOARD_SIZE,
+  coordinatesToSquareIndex,
   createOpeningPosition,
   EMPTY,
   squareToCoordinates,
@@ -24,6 +25,27 @@ describe("squareToCoordinates", () => {
     [31, { row: 7, col: 6 }], // square 32, bottom-right dark square
   ])("maps index %i to %o against the reference diagram", (index, expected) => {
     expect(squareToCoordinates(index)).toEqual(expected);
+  });
+});
+
+describe("coordinatesToSquareIndex", () => {
+  it("is the inverse of squareToCoordinates for every playable square", () => {
+    for (let index = 0; index < BOARD_SIZE; index++) {
+      const { row, col } = squareToCoordinates(index);
+      expect(coordinatesToSquareIndex(row, col)).toBe(index);
+    }
+  });
+
+  it("returns undefined off the board", () => {
+    expect(coordinatesToSquareIndex(-1, 1)).toBeUndefined();
+    expect(coordinatesToSquareIndex(8, 1)).toBeUndefined();
+    expect(coordinatesToSquareIndex(0, -1)).toBeUndefined();
+    expect(coordinatesToSquareIndex(0, 8)).toBeUndefined();
+  });
+
+  it("returns undefined for light (unplayed) squares", () => {
+    expect(coordinatesToSquareIndex(0, 0)).toBeUndefined();
+    expect(coordinatesToSquareIndex(0, 2)).toBeUndefined();
   });
 });
 

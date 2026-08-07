@@ -34,6 +34,16 @@ export function squareToCoordinates(index: SquareIndex): SquareCoordinates {
   return { row, col };
 }
 
+// Inverse of squareToCoordinates. Returns undefined for off-board coordinates and for the
+// light squares, which carry no index because play never occurs on them.
+export function coordinatesToSquareIndex(row: number, col: number): SquareIndex | undefined {
+  if (row < 0 || row > 7 || col < 0 || col > 7) return undefined;
+  if ((row + col) % 2 === 0) return undefined;
+  const colOffset = row % 2 === 0 ? 1 : 0;
+  const quarter = (col - colOffset) / 2;
+  return row * 4 + quarter;
+}
+
 export function createOpeningPosition(): Position {
   const squares = new Int8Array(BOARD_SIZE);
   for (let i = 0; i < 12; i++) {
