@@ -144,9 +144,17 @@ after the skeleton because it carries almost no unknown risk — only work.
   inverse needed to find diagonal neighbours. Opening position asserted against all seven
   hand-verified destination squares, not just the count; king vs. man direction limits,
   blocked destinations, and crowning-ends-the-turn all covered by `moves.test.ts`.
-- ☐ **2.3 Captures and chains.** Jump generation, recursive chaining, no double-jumping a
+- ☑ **2.3 Captures and chains.** Jump generation, recursive chaining, no double-jumping a
   piece, chain termination on crowning.
   *Accepts:* known multi-jump positions generate the expected chains.
+  *Built 2026-08-07.* `exploreJumps` in `moves.ts` — recursive jump search over a working
+  copy of the board, captured pieces removed for the duration of the branch that captures
+  them and restored on backtrack. Emits a move at every hop, not just maximal chains (D-3,
+  D-8), and stops immediately on a crowning hop (§3.3), verified against three
+  hand-constructed positions: a two-hop chain, a chain that crowns mid-sequence with a
+  simple move also available, and a king jumping backward. Prefix-emission and
+  simple/capture coexistence were built in as part of "recursive chaining" itself, per
+  DESIGN.md §3.2 — see the note on task 2.4's scope in that PR.
 - ☐ **2.4 House rules.** Chain prefixes emitted as first-class moves (D-3, D-8); no
   compulsion to capture or to take the longest (R-39, R-40, R-41).
   *Accepts:* a position with a two-jump chain generates both the one-jump and two-jump

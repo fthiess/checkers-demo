@@ -45,10 +45,13 @@ describe("generateMoves", () => {
     expect(moves.map((m) => m.path[0])).toEqual([8, 9]);
   });
 
-  it("does not generate a move onto an occupied square", () => {
+  it("does not generate a simple move onto an occupied square, but offers a jump if the occupant is capturable", () => {
     const position = positionFrom({ 13: BLACK_MAN, 17: WHITE_MAN }, "black");
     const moves = generateMoves(position);
-    expect(moves.map((m) => m.path[0])).toEqual([16]);
+    expect(moves).toEqual([
+      { from: 13, path: [16], captured: [], promotes: false },
+      { from: 13, path: [22], captured: [17], promotes: false },
+    ]);
   });
 
   it("only generates moves for the side to move", () => {
@@ -61,6 +64,38 @@ describe("generateMoves", () => {
     const moves = generateMoves(position);
     expect(moves).toHaveLength(2);
     expect(moves.every((m) => m.promotes)).toBe(true);
+  });
+});
+
+describe("generateMoves — captures and chains", () => {
+  it("emits both the one-jump and two-jump moves for a two-hop chain, not just the maximal one (D-3, D-8)", () => {
+    const position = positionFrom({ 4: BLACK_MAN, 8: WHITE_MAN, 17: WHITE_MAN }, "black");
+    const moves = generateMoves(position);
+    expect(moves).toEqual([
+      { from: 4, path: [13], captured: [8], promotes: false },
+      { from: 4, path: [13, 22], captured: [8, 17], promotes: false },
+    ]);
+  });
+
+  it("ends a chain immediately when a hop crowns the piece, even with a simple move also available", () => {
+    const position = positionFrom({ 13: BLACK_MAN, 16: WHITE_MAN, 24: WHITE_MAN }, "black");
+    const moves = generateMoves(position);
+    expect(moves).toEqual([
+      { from: 13, path: [17], captured: [], promotes: false },
+      { from: 13, path: [20], captured: [16], promotes: false },
+      { from: 13, path: [20, 29], captured: [16, 24], promotes: true },
+    ]);
+  });
+
+  it("lets a king jump backward, unlike a man", () => {
+    const position = positionFrom({ 13: BLACK_KING, 8: WHITE_MAN }, "black");
+    const moves = generateMoves(position);
+    expect(moves).toEqual([
+      { from: 13, path: [9], captured: [], promotes: false },
+      { from: 13, path: [16], captured: [], promotes: false },
+      { from: 13, path: [17], captured: [], promotes: false },
+      { from: 13, path: [4], captured: [8], promotes: false },
+    ]);
   });
 });
 
