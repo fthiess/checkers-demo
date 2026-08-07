@@ -155,10 +155,16 @@ after the skeleton because it carries almost no unknown risk — only work.
   simple move also available, and a king jumping backward. Prefix-emission and
   simple/capture coexistence were built in as part of "recursive chaining" itself, per
   DESIGN.md §3.2 — see the note on task 2.4's scope in that PR.
-- ☐ **2.4 House rules.** Chain prefixes emitted as first-class moves (D-3, D-8); no
+- ☑ **2.4 House rules.** Chain prefixes emitted as first-class moves (D-3, D-8); no
   compulsion to capture or to take the longest (R-39, R-40, R-41).
   *Accepts:* a position with a two-jump chain generates both the one-jump and two-jump
   moves, plus every non-capturing alternative.
+  *Built 2026-08-07.* Test-coverage-only, per the scoping note in task 2.3's PR:
+  `generateMoves` already satisfies R-39/R-40/R-41 structurally (it loops over every piece
+  unconditionally with no cross-piece suppression logic), confirmed rather than newly
+  built. Two tests added: a capture on one piece coexisting with an unrelated piece's
+  simple move (R-39), and a shorter capture staying legal alongside a longer one available
+  in a different direction (R-40). No production code changed.
 - ☐ **2.5 Termination.** Loss on having no legal move, covering both no-pieces and blocked
   (R-43).
   *Accepts:* a constructed blocked position with pieces remaining reports a loss.
