@@ -136,9 +136,14 @@ after the skeleton because it carries almost no unknown risk — only work.
   index-to-coordinate formula, and the opening position constant. `board.test.ts` checks
   eight squares' coordinates against the published PDN/checkers numbering diagram
   (independent of the formula under test), plus opening-position placement and shape.
-- ☐ **2.2 Simple moves.** Generation and application for men and kings, including crowning
+- ☑ **2.2 Simple moves.** Generation and application for men and kings, including crowning
   and turn end (R-43, [DESIGN.md §3.3](DESIGN.md)).
   *Accepts:* opening position yields exactly seven legal moves; crowning ends the turn.
+  *Built 2026-08-07.* `src/engine/moves.ts` — `Move` type, `generateMoves` (simple moves
+  only; capture generation is 2.3), `applyMove`. `board.ts` gained the coordinate→index
+  inverse needed to find diagonal neighbours. Opening position asserted against all seven
+  hand-verified destination squares, not just the count; king vs. man direction limits,
+  blocked destinations, and crowning-ends-the-turn all covered by `moves.test.ts`.
 - ☐ **2.3 Captures and chains.** Jump generation, recursive chaining, no double-jumping a
   piece, chain termination on crowning.
   *Accepts:* known multi-jump positions generate the expected chains.
