@@ -184,9 +184,18 @@ after the skeleton because it carries almost no unknown risk — only work.
   those walks. "Move reversibility" from DESIGN.md §8 is not covered: no undo/reverse-move
   function exists anywhere in the codebase, and ROADMAP's own acceptance list for this task
   doesn't call for one, so building one was treated as out of scope.
-- ☐ **2.7 Notation and PDN export.** Short form, explicit full path where ambiguous, file
+- ☑ **2.7 Notation and PDN export.** Short form, explicit full path where ambiguous, file
   export with tag pairs and result (R-24).
   *Accepts:* a corpus of recorded games replays move by move with every move found legal.
+  *Built 2026-08-07.* `src/engine/notation.ts` — `notateMove` (short form by default,
+  falling back to the explicit full path only when a different legal move from the same
+  origin shares the final destination) and `exportPdn` (tag pairs, numbered move text,
+  result). No parser was built — DESIGN.md only specifies rendering. The corpus is a real
+  published game's move sequence ([source](https://gambiter.com/checkers/Portable_draughts_notation.html),
+  20 plies) with player names and commentary deliberately omitted (D-13, D-19); replayed by
+  matching origin/destination square numbers against generated legal moves at each ply,
+  not by trusting the source's `-`/`x` characters, which weren't reliable through the
+  fetch.
 - ☐ **2.8 State hash.** Canonical serialisation and FNV-1a hash ([DESIGN.md §4.3](DESIGN.md)).
   *Accepts:* identical positions hash identically; any single-square difference does not.
 
