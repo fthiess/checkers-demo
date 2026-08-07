@@ -24,7 +24,7 @@ Phase 1 connects two browsers before the engine exists.
 | --- | --- | --- |
 | 0 | Repository, toolchain, CI, deploy | ☑ |
 | 1 | Walking skeleton — two browsers connected | ☐ |
-| 2 | Rules engine | ☐ |
+| 2 | Rules engine | ☑ |
 | 3 | Board interface and input | ☐ |
 | 4 | Animation, colour, and theme | ☐ |
 | 5 | Game lifecycle | ☐ |
@@ -196,8 +196,14 @@ after the skeleton because it carries almost no unknown risk — only work.
   matching origin/destination square numbers against generated legal moves at each ply,
   not by trusting the source's `-`/`x` characters, which weren't reliable through the
   fetch.
-- ☐ **2.8 State hash.** Canonical serialisation and FNV-1a hash ([DESIGN.md §4.3](DESIGN.md)).
+- ☑ **2.8 State hash.** Canonical serialisation and FNV-1a hash ([DESIGN.md §4.3](DESIGN.md)).
   *Accepts:* identical positions hash identically; any single-square difference does not.
+  *Built 2026-08-07.* `src/engine/hash.ts` — canonical serialisation (32 square bytes, side
+  to move, 4-byte big-endian ply count) hashed with a 32-bit FNV-1a. `fnv1a32` checked
+  directly against the algorithm's published test vectors (`""`, `"a"`, `"foobar"`), not
+  just self-consistency. `stateHash` checked for identical positions hashing identically
+  and, looping over all 32 squares individually, that changing any one square changes the
+  hash. **Phase 2 is now complete** — all of 2.1 through 2.8 built, CI-verified, and merged.
 
 ## Phase 3 — Board interface and input
 
