@@ -165,9 +165,15 @@ after the skeleton because it carries almost no unknown risk — only work.
   built. Two tests added: a capture on one piece coexisting with an unrelated piece's
   simple move (R-39), and a shorter capture staying legal alongside a longer one available
   in a different direction (R-40). No production code changed.
-- ☐ **2.5 Termination.** Loss on having no legal move, covering both no-pieces and blocked
+- ☑ **2.5 Termination.** Loss on having no legal move, covering both no-pieces and blocked
   (R-43).
   *Accepts:* a constructed blocked position with pieces remaining reports a loss.
+  *Built 2026-08-07.* `src/engine/termination.ts` — `isTerminal(position)`, true exactly
+  when `generateMoves` returns empty, with no special-casing between the two causes (per
+  §3.3). Tested against the opening position (false), a side with zero pieces, and a single
+  remaining piece wholly blocked by adjacent enemies with the capture landing squares also
+  occupied. Deliberately no `winnerOf`/result-shape helper yet — that belongs to `game/`'s
+  session state machine in Phase 5, whose shape isn't decided.
 - ☐ **2.6 Property-based tests.** Piece conservation, deterministic move ordering,
   application never producing an inconsistent position.
   *Accepts:* properties hold across generated positions.
