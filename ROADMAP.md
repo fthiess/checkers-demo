@@ -174,9 +174,16 @@ after the skeleton because it carries almost no unknown risk — only work.
   remaining piece wholly blocked by adjacent enemies with the capture landing squares also
   occupied. Deliberately no `winnerOf`/result-shape helper yet — that belongs to `game/`'s
   session state machine in Phase 5, whose shape isn't decided.
-- ☐ **2.6 Property-based tests.** Piece conservation, deterministic move ordering,
+- ☑ **2.6 Property-based tests.** Piece conservation, deterministic move ordering,
   application never producing an inconsistent position.
   *Accepts:* properties hold across generated positions.
+  *Built 2026-08-07.* Added `fast-check` as a devDependency (never bundled into either
+  build output). `src/engine/properties.test.ts` walks reproducible-but-varied game
+  sequences from the opening position — an arbitrary array of small integers selects
+  `moves[choice % moves.length]` at each step — and checks all three properties across
+  those walks. "Move reversibility" from DESIGN.md §8 is not covered: no undo/reverse-move
+  function exists anywhere in the codebase, and ROADMAP's own acceptance list for this task
+  doesn't call for one, so building one was treated as out of scope.
 - ☐ **2.7 Notation and PDN export.** Short form, explicit full path where ambiguous, file
   export with tag pairs and result (R-24).
   *Accepts:* a corpus of recorded games replays move by move with every move found legal.
