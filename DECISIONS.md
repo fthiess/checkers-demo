@@ -419,6 +419,36 @@ regardless of change tier.
 
 [i14]: https://github.com/fthiess/checkers-demo/issues/14
 
+*Later updated by: N-3 — this entry's diagnosis was incorrect; see N-3.*
+
+---
+
+## N-3 — N-2 was a false alarm; the check had already passed
+
+**Date:** 2026-08-07
+
+**Note.** N-2 concluded that branch protection let PR #13 merge despite the `verify` check
+never having reported. Closer inspection of the run's own timestamps shows this was wrong:
+the `pull_request` run for that branch (run 31130882535) completed successfully at
+`23:25:00Z`, nearly two minutes before the merge at `23:26:57Z`. The check had reported;
+branch protection worked correctly. What actually happened was a several-minute delay
+between a run completing and it becoming visible via `gh api .../actions/runs` and the
+PR's Checks tab — the session that wrote N-2 diagnosed from that stale listing rather than
+the run's actual state, and [issue #14][i14] was filed on the same mistaken premise.
+
+**Why it is written down.** N-2 and issue #14 both asserted a broken gate, in writing, with
+specifics. Neither held up. The record should say so as plainly as it asserted the
+original claim — a later session skimming the index should not be left trusting a retracted
+finding because only the retraction is quiet.
+
+**Consequences.** Merge-on-green (D-19) is not suspended after all; there is no evidence
+D-18's protection needs attention. Issue #14 is closed. If a future session sees the same
+symptom — a PR shows no checks in the listing API or the Checks tab — check the run's own
+`created_at`/`updated_at` timestamps before concluding CI didn't run; the listing surfaces
+can lag behind a run's actual completion by a few minutes.
+
+[i14]: https://github.com/fthiess/checkers-demo/issues/14
+
 ---
 
 ## D-19 — The project is delegated, and decisions are attributed by role
