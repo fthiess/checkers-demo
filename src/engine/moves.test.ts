@@ -99,6 +99,35 @@ describe("generateMoves — captures and chains", () => {
   });
 });
 
+describe("generateMoves — non-compulsion (R-39, R-40, R-41)", () => {
+  it("does not suppress an unrelated piece's simple move just because another piece has a capture available (R-39)", () => {
+    const position = positionFrom(
+      { 4: BLACK_MAN, 8: WHITE_MAN, 17: WHITE_MAN, 24: BLACK_MAN },
+      "black",
+    );
+    const moves = generateMoves(position);
+    expect(moves).toEqual([
+      { from: 4, path: [13], captured: [8], promotes: false },
+      { from: 4, path: [13, 22], captured: [8, 17], promotes: false },
+      { from: 24, path: [28], captured: [], promotes: true },
+      { from: 24, path: [29], captured: [], promotes: true },
+    ]);
+  });
+
+  it("keeps a shorter capture legal alongside a longer one available in a different direction (R-40)", () => {
+    const position = positionFrom(
+      { 13: BLACK_MAN, 16: WHITE_MAN, 17: WHITE_MAN, 25: WHITE_MAN },
+      "black",
+    );
+    const moves = generateMoves(position);
+    expect(moves).toEqual([
+      { from: 13, path: [20], captured: [16], promotes: false },
+      { from: 13, path: [22], captured: [17], promotes: false },
+      { from: 13, path: [22, 29], captured: [17, 25], promotes: true },
+    ]);
+  });
+});
+
 describe("applyMove", () => {
   it("moves the piece, clears the origin, and ends the turn", () => {
     const opening = createOpeningPosition();
