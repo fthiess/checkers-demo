@@ -44,6 +44,9 @@
   left: 0;
   width: 12.5%;
   height: 12.5%;
+  cursor: grab;
+  /* Without this, touch browsers treat a drag as a page scroll instead (R-13). */
+  touch-action: none;
 }
 
 .piece::before {
@@ -67,4 +70,12 @@
 .piece--king::before {
   outline: 3px solid var(--accent);
   outline-offset: -6px;
+}
+
+/*
+ * The selected-piece indicator. Full legal-destination highlighting is task 3.3; this is
+ * just enough feedback that a selection is visibly registered.
+ */
+.piece--selected::before {
+  box-shadow: 0 0 0 3px var(--accent);
 }
