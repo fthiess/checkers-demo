@@ -15,7 +15,8 @@ Update this index in the same pull request as any append to the log.
 
 | Subsystem | Governing decisions |
 | --- | --- |
-| **Connectivity and transport** | [D-1](DECISIONS.md#d-1--peer-to-peer-connectivity-via-webrtc-with-manual-signaling) → [D-5](DECISIONS.md#d-5--transport-abstraction-move-intents-and-client-side-validation) → [D-11](DECISIONS.md#d-11--spectators-deferred-to-the-server-transport) *(current)* |
+| **Connectivity and transport** | [D-1](DECISIONS.md#d-1--peer-to-peer-connectivity-via-webrtc-with-manual-signaling) → [D-5](DECISIONS.md#d-5--transport-abstraction-move-intents-and-client-side-validation) → [D-11](DECISIONS.md#d-11--spectators-deferred-to-the-server-transport) → [D-21](DECISIONS.md#d-21--protocol-holds-the-transport-contract-that-game-and-net-share) *(current)* |
+| **Module boundaries** | [D-21](DECISIONS.md#d-21--protocol-holds-the-transport-contract-that-game-and-net-share) |
 | **Rules of play** | [D-2](DECISIONS.md#d-2--american-draughts-with-three-house-modifications) → [D-3](DECISIONS.md#d-3--a-capture-chain-may-be-abandoned-at-any-point) → [D-4](DECISIONS.md#d-4--draws-by-agreement-only-with-a-non-binding-advisory) *(current)* |
 | **Rules engine internals** | [D-8](DECISIONS.md#d-8--the-move-generator-emits-capture-chain-prefixes-as-first-class-moves) |
 | **Sides, colour, and theme** | [D-7](DECISIONS.md#d-7--logical-sides-are-separate-from-display-colours) → [D-9](DECISIONS.md#d-9--contrast-validation-at-selection-plus-a-non-colour-side-marker) *(current)* |
@@ -44,8 +45,7 @@ Decisions whose consequences bite silently, worth knowing before you touch the r
   defect, not unavoidable work; [DESIGN.md §9](DESIGN.md) is the written contract.
 ## Open questions
 
-- **[Issue #6](https://github.com/fthiess/checkers-demo/issues/6)** — `DESIGN.md` §1's diagram
-  and §2's table disagree about whether `game/` may import `net/`. Blocks task 1.1; must be
-  settled rather than worked around.
 - **[Issue #7](https://github.com/fthiess/checkers-demo/issues/7)** — the dependency rule has
-  no automated guard until the module directories exist.
+  no automated guard until the module directories exist. `engine/`, `ui/`, `protocol/`, and
+  `net/` now exist, so the rule is at least lint-checkable across four of the six; the guard
+  that asserts it stays enforced is still owed.

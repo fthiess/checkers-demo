@@ -42,8 +42,9 @@ of.
 | Module | May import |
 | --- | --- |
 | `engine/` | nothing |
-| `game/` | `engine/` |
-| `net/` | `engine/` (the state hash only) |
+| `game/` | `engine/`, `protocol/` |
+| `protocol/` | `engine/` (types) |
+| `net/` | `protocol/`, `engine/` (the state hash only) |
 | `ai/` | `engine/` |
 | `ui/` | `game/`, `engine/` (types) |
 | `app/` | all — and it is the only module that knows which `Transport` is in use |
@@ -52,9 +53,12 @@ Anything that needs to cross does so through `game/`. Biome enforces this as a l
 if you find yourself editing `engine/`, `game/`, or `ui/` in order to change transports,
 that is a design defect rather than unavoidable work — see [DESIGN.md §9](DESIGN.md).
 
-One open question, issue #6: the table forbids `game/` from importing `net/`, but the session
-state machine needs the `Transport` *type*, which is declared there. Settle it at task 1.1
-rather than working around the lint rule.
+`protocol/` is the contract `game/` and `net/` share: the `Transport` and `Signaler`
+interfaces, the message schema, the protocol version. Types and constants only — no codec,
+no peer connection, no behaviour. It exists so `game/` can name a `Transport` without
+importing `net/` (D-21, and issue #6 which asked the question). Anything it imports becomes
+part of that contract, which is why it may reach no further than `engine/`'s types. `ui/`
+may not import it at all: connection status reaches the interface through `game/`.
 
 ## Verification
 

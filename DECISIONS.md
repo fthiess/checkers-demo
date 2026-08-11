@@ -516,3 +516,44 @@ practice.
 versa. If a genuinely general improvement is made in this copy, it is worth porting by hand —
 but that is a deliberate act, not a background expectation. The freshness check that used to
 run at skill invocation is removed; nothing now compares this file to anything.
+
+## D-21 — `protocol/` holds the transport contract that `game/` and `net/` share
+
+**Date:** 2026-08-11 · **Repository owner's call** (recorded on
+[issue #6](https://github.com/fthiess/checkers-demo/issues/6))
+
+**Context.** §1's diagram drew an arrow from `game/` to `net/`; §2's table allowed `game/`
+only `engine/`. The lint rules followed the table, because the table is the more precise
+statement. The disagreement was not academic: the session state machine sends moves through
+a `Transport`, and `Transport` was declared in `net/`, so the very first line of task 1.1
+would have been a lint error. Issue #6 offered three ways out — let `game/` import types
+from `net/`, move the shared types to a module of their own, or have `game/` declare its own
+structural port that `net/`'s implementation happens to satisfy.
+
+**Decision.** A new `protocol/` module holds the `Transport` and `Signaler` interfaces, the
+message schema, and the protocol version. `game/` and `net/` may both import it. `net/`
+keeps the implementations — the codec, the WebRTC transport, the manual signaler. `protocol/`
+may import `engine/`'s types and nothing else. `ui/` may not import it: connection status
+reaches the interface through `game/`.
+
+**Why.** The issue listed the type-import concession first, and it is the smaller diff, but
+it settles the symptom rather than the question. `Transport` is not a `net/` concept that
+`game/` happens to need — it is the boundary *between* them, and a boundary owned by one of
+the two parties is a boundary that drifts toward that party. Naming it as its own module
+makes the contract a thing that can be read, versioned, and reviewed on its own, and makes
+"what crosses this line" answerable by listing a directory. The structural-port option
+preserves the same property with more ceremony and two definitions to keep in step.
+
+Letting `protocol/` reach `engine/`'s types is deliberate: a `move` message carries square
+indices, and one definition of a square shared by the rules and the wire format is worth
+more than the purity of a zero-dependency module. `engine/` imports nothing, so the arrows
+still point downward.
+
+**Consequences.** §1's diagram and §2's table now say the same thing, and neither draws a
+`game/ → net/` arrow. `biome.json` gains a `src/protocol/**` override, and every other
+module's list gains `protocol/` on the permitted or forbidden side — checked by hand against
+deliberate violations from `protocol/` to `net/`, from `ui/` to `protocol/`, and from
+`engine/` to `protocol/`, all three of which the linter refused. The migration contract in §9
+is untouched and slightly strengthened: the module a future `HttpPollingTransport` must
+satisfy is now a named, self-contained thing rather than a shape embedded in the peer-to-peer
+implementation. Issue #6 is closed.

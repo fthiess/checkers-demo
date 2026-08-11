@@ -47,6 +47,8 @@
                     "group": [
                       "**/game",
                       "**/game/**",
+                      "**/protocol",
+                      "**/protocol/**",
                       "**/net",
                       "**/net/**",
                       "**/ai",
@@ -85,7 +87,7 @@
                       "**/app",
                       "**/app/**"
                     ],
-                    "message": "game/ may import engine/ only (DESIGN.md §1)."
+                    "message": "game/ may import engine/ and protocol/ only. The Transport type lives in protocol/, not net/, and app/ still chooses the implementation (D-21, DESIGN.md §1)."
                   }
                 ]
               }
@@ -114,7 +116,38 @@
                       "**/app",
                       "**/app/**"
                     ],
-                    "message": "net/ may import engine/ only, for the state hash (DESIGN.md §1)."
+                    "message": "net/ may import protocol/, and engine/ for the state hash (DESIGN.md §1)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/protocol/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/game",
+                      "**/game/**",
+                      "**/net",
+                      "**/net/**",
+                      "**/ai",
+                      "**/ai/**",
+                      "**/ui",
+                      "**/ui/**",
+                      "**/app",
+                      "**/app/**"
+                    ],
+                    "message": "protocol/ may import engine/ types only. It is the contract game/ and net/ share, so anything it imports becomes part of that contract (D-21, DESIGN.md §1)."
                   }
                 ]
               }
@@ -136,6 +169,8 @@
                     "group": [
                       "**/game",
                       "**/game/**",
+                      "**/protocol",
+                      "**/protocol/**",
                       "**/net",
                       "**/net/**",
                       "**/ui",
@@ -162,8 +197,17 @@
               "options": {
                 "patterns": [
                   {
-                    "group": ["**/net", "**/net/**", "**/ai", "**/ai/**", "**/app", "**/app/**"],
-                    "message": "ui/ may import game/ and engine/ types only; anything crossing to net/ goes through game/ (DESIGN.md §1)."
+                    "group": [
+                      "**/protocol",
+                      "**/protocol/**",
+                      "**/net",
+                      "**/net/**",
+                      "**/ai",
+                      "**/ai/**",
+                      "**/app",
+                      "**/app/**"
+                    ],
+                    "message": "ui/ may import game/ and engine/ types only; anything crossing to protocol/ or net/ goes through game/, which re-exports what the interface needs (D-21, DESIGN.md §1)."
                   }
                 ]
               }

@@ -98,10 +98,28 @@ One thin end-to-end thread: two browsers, in two places, exchanging a message. N
 animation, no polish. This phase exists to discover the connection problems early, while
 there is nothing else in the way.
 
-- ☐ **1.1 Transport and message contracts.** Define `Transport`, `Signaler`, the message
+- ☑ **1.1 Transport and message contracts.** Define `Transport`, `Signaler`, the message
   schema, sequence numbers, and the codec ([DESIGN.md §4](DESIGN.md)).
   *Accepts:* interfaces and schema compile with no implementation; codec round-trips under
   unit test.
+  *Built 2026-08-11.* Settled issue #6 first, since it blocked the task's first line: the
+  `Transport` type now lives in a new `protocol/` module that both `game/` and `net/` may
+  import, rather than in `net/` where `game/` could not reach it (D-21, repository owner's
+  call among the three options the issue laid out). `src/protocol/transport.ts` and
+  `messages.ts` carry the interfaces, the §4.2 schema as a discriminated union, and the
+  protocol version — types and one constant, no behaviour. `src/net/codec.ts` implements
+  `encode`/`decode`, and per the session owner's call owns the sequence numbering: a codec
+  instance belongs to one connection, stamps outgoing numbers, and refuses an inbound one
+  that does not advance. Strictly increasing rather than consecutive, because a gap is
+  harmless while a repeat is a replay. `decode` returns a typed failure instead of throwing
+  and validates every field of every variant — a peer can send anything, and R-57's posture
+  is that inbound is untrusted. It deliberately does *not* check that a square exists or
+  that a move is legal: the receiver settles that through its own engine, and board geometry
+  in the transport layer is the exact leak §9 warns about. `ui/` may not import `protocol/`;
+  connection status will reach the interface through `game/`. DESIGN §1's diagram, §2's
+  table, CLAUDE.md, and `biome.json` were brought into agreement, and the new lint rules were
+  checked by hand against three deliberate violations, all refused. No transport
+  implementation here — that is 1.2.
 - ☐ **1.2 WebRTC transport.** Implement `WebRtcTransport` with non-trickle ICE against a
   public STUN server.
   *Accepts:* two browser tabs establish a data channel; status transitions are observable.

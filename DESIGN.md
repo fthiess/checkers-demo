@@ -22,44 +22,65 @@ as though a server already existed.** Option A was chosen for speed of demonstra
 rather than a hypothetical, and §9 states exactly what such a move would touch.
 
 ```
-┌──────────────────────────── browser ────────────────────────────┐
-│                                                                 │
-│   ui/  ────────────────────────── ai/                           │
-│    │  render, input, animation      move chooser                │
-│    │                                  │                         │
-│    └──────────────┬───────────────────┘                         │
-│                   ▼                                             │
-│                game/          session state machine             │
-│                   │           players, turn, series, result     │
-│          ┌────────┴────────┐                                    │
-│          ▼                 ▼                                    │
-│      engine/            net/                                    │
-│      pure rules         Transport ◄── protocol codec            │
-│      zero deps              │                                   │
-│                             ▼                                   │
-│                     WebRtcTransport  ── Signaler (manual)       │
-└─────────────────────────────┼───────────────────────────────────┘
-                              │  RTCDataChannel
-                              ▼
-                        the other browser
+┌───────────────────────────── browser ──────────────────────────────┐
+│                                                                    │
+│   ui/  ──────────────────────────────  ai/                         │
+│    │   render, input, animation        move chooser                │
+│    │                                     │                         │
+│    ▼                                     │                         │
+│  game/   session state machine           │      net/               │
+│    │     players, turn, series, result   │      codec,             │
+│    │                                     │      WebRtcTransport,   │
+│    │                                     │      ManualSignaler     │
+│    ├───────────────────┐                 │         │               │
+│    │                   ▼                 │         │               │
+│    │             protocol/  ◄────────────┼─────────┘               │
+│    │             Transport, Signaler,    │                         │
+│    │             message schema          │                         │
+│    │             types only              │                         │
+│    │                   │                 │                         │
+│    ▼                   ▼                 ▼                         │
+│                    engine/                                         │
+│                    pure rules, zero dependencies                   │
+│                                                                    │
+│  app/ instantiates net/'s transport and injects it into game/ as   │
+│  a protocol/ Transport — the only module that knows which one is   │
+│  in use.                                                           │
+└─────────────────────────────────┼──────────────────────────────────┘
+                                  │  RTCDataChannel
+                                  ▼
+                            the other browser
 ```
 
 Dependency rule: arrows point downward only. `engine/` imports nothing. `net/` never
 imports `ui/`. `ui/` never imports `net/`. Anything that needs to cross does so through
 `game/`.
 
+`game/` does not import `net/`, and the diagram above draws no arrow between them. The
+session state machine sends moves through a `Transport`, but the *interface* it names lives
+in `protocol/` alongside the message schema, and the *implementation* it is handed comes
+from `app/`. That separation is what lets §9's migration swap one transport for another
+without `game/` noticing (D-21).
+
 ## 2. Modules
 
 | Module | Responsibility | May import |
 | --- | --- | --- |
 | `engine/` | Board representation, move generation, move application, terminal detection, PDN notation. Pure and deterministic. | nothing |
-| `game/` | Session state machine: players, colours, whose turn, result, series score, draw offers, persistence. Owns the engine instance. | `engine/` |
-| `net/` | `Transport` and `Signaler` interfaces, message schema and codec, the WebRTC implementation. | `engine/` (for the state hash only) |
+| `game/` | Session state machine: players, colours, whose turn, result, series score, draw offers, persistence. Owns the engine instance. | `engine/`, `protocol/` |
+| `protocol/` | `Transport` and `Signaler` interfaces, the message schema, the protocol version. Types and constants only — no behaviour. | `engine/` (types) |
+| `net/` | The codec, the WebRTC transport, the manual signaler. Implementations of `protocol/`'s interfaces. | `protocol/`, `engine/` (for the state hash only) |
 | `ai/` | Chooses a move given an engine position. | `engine/` |
 | `ui/` | Board rendering, pointer and keyboard input, animation, panels, colour and theme selection. | `game/`, `engine/` (types) |
 | `app/` | Composition root. Instantiates everything and wires it together. | all |
 
 `app/` is the only module permitted to know which `Transport` implementation is in use.
+
+`protocol/` exists so that `game/` can name a `Transport` without importing `net/` (D-21).
+It holds the contract the two share and nothing else: no codec, no peer connection, no
+runtime behaviour beyond the protocol version constant. `ui/` may not import it — connection
+status reaches the interface through `game/`, which keeps the interface layer unable to name
+a transport concept at all, the property §9's migration leans on hardest.
 
 ## 3. Rules engine
 
@@ -146,6 +167,8 @@ standard tag pairs, the move text, and the result (R-24).
 
 ### 4.1 Transport interface
 
+Declared in `protocol/`, not `net/` (D-21). `net/` supplies implementations of it.
+
 ```ts
 interface Transport {
   send(message: OutboundMessage): void
@@ -166,6 +189,13 @@ WebSocket, or HTTP polling, and nothing in it presumes a peer rather than a serv
 All messages are JSON objects carrying a protocol version and a monotonically increasing
 sequence number. Version mismatch is detected at handshake and reported as a plain-language
 error rather than being tolerated.
+
+The schema types live in `protocol/`; the codec that reads and writes them lives in `net/`.
+Senders hand the codec a message *body* and never construct the envelope: the codec stamps
+the version and the next sequence number, and on the receiving side rejects a sequence that
+does not advance. A codec instance therefore belongs to one connection. Sequence numbers are
+strictly increasing rather than consecutive — a gap is harmless, while a repeat or a step
+backwards means a duplicate or a replay and is refused.
 
 | Message | Payload | Purpose |
 | --- | --- | --- |
