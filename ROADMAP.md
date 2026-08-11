@@ -223,9 +223,20 @@ most reliable way to end up not having it.
   absolutely-positioned grid child didn't resolve the way `box-sizing: border-box` implied —
   fixed by sizing `.piece` itself with plain percentage width/height and moving the circle
   inset onto `::before`, which sizes cleanly against `.piece`'s own now-correct box.
-- ☐ **3.2 Pointer input.** Drag-and-drop and click-then-click sharing one selection model
+- ☑ **3.2 Pointer input.** Drag-and-drop and click-then-click sharing one selection model
   (R-13).
   *Accepts:* both input styles produce identical results and cannot disagree.
+  *Built 2026-08-11.* `src/ui/input.ts` — `selectSquare`/`attemptMove`, kept pure and
+  DOM-free like `board.ts`. Both input styles are wired in `main.ts` to call these same two
+  functions, so they cannot disagree by construction: a piece's `pointerdown` selects (and
+  tracks a possible drag); an empty square's `click` attempts a move; a release with no
+  real movement lands back on the origin, which `attemptMove` naturally no-ops on. Dropping
+  on an intermediate landing square of a chain stops there (R-41) for free, since
+  destinations are matched against every legal move including prefixes (D-3, D-8). Verified
+  directly in the dev server: click-then-click, drag-and-drop, illegal attempts (no state
+  change, selection retained), and reselecting a different own piece all behave correctly.
+  `board.ts` gained `squareAtOrientedCoordinates`, the reverse of `orientSquare`, needed to
+  resolve a screen position back to a canonical square.
 - ☐ **3.3 Legal-move indication.** Destination highlighting, and full capture-chain preview
   for chain-initiating moves (R-14).
   *Accepts:* a multi-jump chain is shown in full before the first hop is committed.

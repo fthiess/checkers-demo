@@ -8,6 +8,7 @@
 
 import {
   BOARD_SIZE,
+  coordinatesToSquareIndex,
   EMPTY,
   type Position,
   type Side,
@@ -27,6 +28,19 @@ export interface ScreenCoordinates {
 export function orientSquare(index: SquareIndex, viewingSide: Side): ScreenCoordinates {
   const { row, col } = squareToCoordinates(index);
   return viewingSide === "white" ? { row, col } : { row: 7 - row, col: 7 - col };
+}
+
+// The reverse of orientSquare -- both viewing sides' transforms are self-inverse at the
+// coordinate level (identity for white; a 180-degree rotation undoes itself for black), so
+// applying the same transform again recovers the canonical coordinates before looking up
+// the index. Returns undefined for a light (unplayed) square's screen position.
+export function squareAtOrientedCoordinates(
+  row: number,
+  col: number,
+  viewingSide: Side,
+): SquareIndex | undefined {
+  const canonical = viewingSide === "white" ? { row, col } : { row: 7 - row, col: 7 - col };
+  return coordinatesToSquareIndex(canonical.row, canonical.col);
 }
 
 export interface SquareLayout {

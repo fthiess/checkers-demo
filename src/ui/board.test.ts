@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { BLACK_MAN, createOpeningPosition, WHITE_MAN } from "../engine/board.ts";
-import { computeBoardLayout, orientSquare } from "./board.ts";
+import { BLACK_MAN, BOARD_SIZE, createOpeningPosition, WHITE_MAN } from "../engine/board.ts";
+import { computeBoardLayout, orientSquare, squareAtOrientedCoordinates } from "./board.ts";
 
 describe("orientSquare", () => {
   it("is the identity for a white viewer", () => {
@@ -11,6 +11,21 @@ describe("orientSquare", () => {
     // Square 1 (index 0) is Black's home corner; square 32 (index 31) is White's, and
     // orientSquare(31, "white") is the identity, i.e. squareToCoordinates(31) itself.
     expect(orientSquare(0, "black")).toEqual({ row: 7, col: 6 });
+  });
+});
+
+describe("squareAtOrientedCoordinates", () => {
+  it("is the inverse of orientSquare for every square, in both viewing sides", () => {
+    for (const viewingSide of ["black", "white"] as const) {
+      for (let index = 0; index < BOARD_SIZE; index++) {
+        const { row, col } = orientSquare(index, viewingSide);
+        expect(squareAtOrientedCoordinates(row, col, viewingSide)).toBe(index);
+      }
+    }
+  });
+
+  it("returns undefined for a light square's screen position", () => {
+    expect(squareAtOrientedCoordinates(0, 0, "black")).toBeUndefined();
   });
 });
 
