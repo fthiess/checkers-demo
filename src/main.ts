@@ -10,7 +10,7 @@ import {
 } from "./engine/board.ts";
 import { describeLaunchContext, launchContextFor } from "./launch-context.ts";
 import { computeBoardLayout, squareAtOrientedCoordinates } from "./ui/board.ts";
-import { attemptMove, type InputState, selectSquare } from "./ui/input.ts";
+import { attemptMove, type InputState, legalDestinations, selectSquare } from "./ui/input.ts";
 
 const status = document.querySelector<HTMLParagraphElement>("#status");
 if (status) {
@@ -86,6 +86,7 @@ function render(): void {
   boardRoot.replaceChildren();
 
   const layout = computeBoardLayout(state.position, VIEWING_SIDE);
+  const destinations = new Map(legalDestinations(state).map((d) => [d.square, d.capture]));
   const board = document.createElement("div");
   board.className = "board";
   boardElRef = board;
@@ -98,6 +99,12 @@ function render(): void {
     const index = squareAtOrientedCoordinates(square.row, square.col, VIEWING_SIDE);
     if (index !== undefined) {
       el.addEventListener("click", () => handleSquareClick(index));
+      if (destinations.has(index)) {
+        el.classList.add("square--destination");
+        if (destinations.get(index)) {
+          el.classList.add("square--capture");
+        }
+      }
     }
     board.appendChild(el);
   }

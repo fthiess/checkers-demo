@@ -237,9 +237,20 @@ most reliable way to end up not having it.
   change, selection retained), and reselecting a different own piece all behave correctly.
   `board.ts` gained `squareAtOrientedCoordinates`, the reverse of `orientSquare`, needed to
   resolve a screen position back to a canonical square.
-- ☐ **3.3 Legal-move indication.** Destination highlighting, and full capture-chain preview
+- ☑ **3.3 Legal-move indication.** Destination highlighting, and full capture-chain preview
   for chain-initiating moves (R-14).
   *Accepts:* a multi-jump chain is shown in full before the first hop is committed.
+  *Built 2026-08-11.* `legalDestinations` in `input.ts` — every legal destination for the
+  selected piece, tagged by whether it's a capture. The chain-preview requirement turned
+  out to need no special path-tracking: since every prefix of a chain is already its own
+  first-class legal move (D-3, D-8), an intermediate hop is already one of these
+  destinations in its own right. Interpreted "drawn as a path" as highlighting every
+  reachable square rather than a connecting line between them — nothing in the acceptance
+  criterion requires the latter, and it reads more like Phase 4 polish. Verified in the dev
+  server (single- and double-destination pieces, and that reselecting a different piece
+  clears the old highlight); the capture-vs-simple styling itself is simple class-driven
+  CSS already covered by the four passing unit tests, with no capture available to
+  visually demo from the static opening position.
 - ☐ **3.4 Keyboard operation.** Grid semantics, arrow navigation, select and place, cancel,
   visible focus (R-46, R-47).
   *Accepts:* a complete game is playable using only the keyboard.

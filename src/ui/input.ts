@@ -49,6 +49,22 @@ export function selectSquare(state: InputState, square: SquareIndex): InputState
   return state;
 }
 
+export interface DestinationHighlight {
+  readonly square: SquareIndex;
+  readonly capture: boolean;
+}
+
+// Every prefix of a chain is already a separate legal move (D-3, D-8), so an intermediate
+// hop is already one of these destinations in its own right -- highlighting "every legal
+// destination for the selected piece" previews the full chain for free, with no separate
+// path-tracking needed (R-14).
+export function legalDestinations(state: InputState): readonly DestinationHighlight[] {
+  if (state.selected === null) return [];
+  return generateMoves(state.position)
+    .filter((move) => move.from === state.selected)
+    .map((move) => ({ square: finalSquareOf(move), capture: move.captured.length > 0 }));
+}
+
 // A player dropping on an intermediate landing square of a multi-hop chain -- rather than
 // its maximal destination -- resolves to that shorter move (R-41), simply because it's
 // matched by origin and final destination against every legal move, prefixes included

@@ -73,9 +73,30 @@
 }
 
 /*
- * The selected-piece indicator. Full legal-destination highlighting is task 3.3; this is
- * just enough feedback that a selection is visibly registered.
+ * The selected-piece indicator.
  */
 .piece--selected::before {
   box-shadow: 0 0 0 3px var(--accent);
+}
+
+/*
+ * Legal-destination highlighting (R-14). Every reachable square is marked, including a
+ * chain's intermediate hops -- each is already its own legal move (D-3, D-8), so this
+ * previews the full chain without needing to draw a connecting path between them.
+ */
+.square--destination {
+  position: relative;
+}
+
+.square--destination::after {
+  content: "";
+  position: absolute;
+  inset: 38%;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.55;
+}
+
+.square--destination.square--capture::after {
+  opacity: 0.85;
 }
