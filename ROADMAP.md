@@ -210,10 +210,19 @@ after the skeleton because it carries almost no unknown risk — only work.
 Accessibility is built here, not retrofitted in Phase 7. Retrofitting it is the single
 most reliable way to end up not having it.
 
-- ☐ **3.1 Board rendering.** Sixty-four squares, pieces positioned by transform, per-client
+- ☑ **3.1 Board rendering.** Sixty-four squares, pieces positioned by transform, per-client
   orientation as a render-time mapping (R-11, R-12, [DESIGN.md §6.1](DESIGN.md)).
   *Accepts:* both clients render the same position with each player's pieces nearest them;
   the engine and protocol remain in canonical numbering.
+  *Built 2026-08-07.* `src/ui/board.ts` — `orientSquare` (a white viewer needs no
+  transform; a black viewer gets a full 180° rotation) and pure `computeBoardLayout`, kept
+  DOM-free so it needs no `jsdom`/`happy-dom` dependency to test. `main.ts` does the actual
+  DOM construction and CSS `transform` piece positioning; verified in the dev server in both
+  light and dark appearance. Caught and fixed a real bug along the way: piece elements were
+  rendering nearly double-size and drifting off the board because percentage `padding` on an
+  absolutely-positioned grid child didn't resolve the way `box-sizing: border-box` implied —
+  fixed by sizing `.piece` itself with plain percentage width/height and moving the circle
+  inset onto `::before`, which sizes cleanly against `.piece`'s own now-correct box.
 - ☐ **3.2 Pointer input.** Drag-and-drop and click-then-click sharing one selection model
   (R-13).
   *Accepts:* both input styles produce identical results and cannot disagree.
