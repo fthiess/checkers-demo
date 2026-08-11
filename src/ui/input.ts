@@ -75,12 +75,21 @@ export function legalDestinations(state: InputState): readonly DestinationHighli
 // its maximal destination -- resolves to that shorter move (R-41), simply because it's
 // matched by origin and final destination against every legal move, prefixes included
 // (D-3, D-8), not just the longest chain from a given origin.
-export function attemptMove(state: InputState, destination: SquareIndex): InputState {
-  if (state.selected === null) return state;
+//
+// Exposed separately from attemptMove because announcing a move (R-48) needs the move
+// itself, not just the position it produces. Re-deriving it in the caller would be a second
+// implementation of "what move does this resolve to", which is exactly what this module
+// exists to prevent.
+export function findMove(state: InputState, destination: SquareIndex): Move | undefined {
+  if (state.selected === null) return undefined;
 
-  const match = generateMoves(state.position).find(
+  return generateMoves(state.position).find(
     (move) => move.from === state.selected && finalSquareOf(move) === destination,
   );
+}
+
+export function attemptMove(state: InputState, destination: SquareIndex): InputState {
+  const match = findMove(state, destination);
 
   if (!match) return state;
 

@@ -10,6 +10,7 @@ import {
   WHITE_KING,
 } from "./engine/board.ts";
 import { describeLaunchContext, launchContextFor } from "./launch-context.ts";
+import { moveAnnouncement } from "./ui/announce.ts";
 import {
   computeBoardLayout,
   orientSquare,
@@ -19,6 +20,7 @@ import {
 import {
   attemptMove,
   clearSelection,
+  findMove,
   type InputState,
   legalDestinations,
   selectSquare,
@@ -30,6 +32,18 @@ if (status) {
 }
 
 const boardRoot = document.querySelector<HTMLDivElement>("#board-root");
+
+// Queried once and never rebuilt: render() replaces the board's whole subtree on every
+// interaction, and a live region that is itself replaced between the text being set and the
+// screen reader reading it announces nothing (R-48). It lives outside #board-root for the
+// same reason.
+const announcer = document.querySelector<HTMLParagraphElement>("#announcer");
+
+function announce(text: string): void {
+  if (announcer) {
+    announcer.textContent = text;
+  }
+}
 
 // Fixed until Phase 5 adds real player/side selection.
 const VIEWING_SIDE: Side = "black";
@@ -50,15 +64,24 @@ let dragOrigin: SquareIndex | null = null;
 let dragEl: HTMLElement | null = null;
 let boardElRef: HTMLElement | null = null;
 
+// Every input style commits its move through here, so the announcement can no more disagree
+// between them than the move itself can -- the same reason attemptMove is shared (R-13).
+// Returns whether a legal move was found and applied.
+function commitMove(destination: SquareIndex): boolean {
+  const move = findMove(state, destination);
+  if (!move) return false;
+
+  const before = state.position;
+  state = attemptMove(state, destination);
+  announce(moveAnnouncement(before, move, state.position));
+  return true;
+}
+
 function activateSquare(square: SquareIndex): void {
   focusedSquare = square;
-  if (state.selected !== null && state.selected !== square) {
-    const after = attemptMove(state, square);
-    if (after !== state) {
-      state = after;
-      render();
-      return;
-    }
+  if (state.selected !== null && state.selected !== square && commitMove(square)) {
+    render();
+    return;
   }
   state = selectSquare(state, square);
   render();
@@ -97,11 +120,11 @@ function handleBoardPointerUp(event: PointerEvent): void {
   dragOrigin = null;
   dragEl = null;
 
-  // A release with no real movement lands back on the origin square; attemptMove finds no
-  // move from a square to itself and leaves state untouched, so this doubles as the "just
-  // tapped to select, didn't drag" case without any extra handling.
+  // A release with no real movement lands back on the origin square; there is no legal move
+  // from a square to itself, so commitMove finds nothing and leaves state untouched -- which
+  // doubles as the "just tapped to select, didn't drag" case without any extra handling.
   if (target !== undefined) {
-    state = attemptMove(state, target);
+    commitMove(target);
   }
   render();
 }

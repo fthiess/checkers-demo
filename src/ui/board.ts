@@ -47,7 +47,10 @@ export function squareAtOrientedCoordinates(
   return coordinatesToSquareIndex(canonical.row, canonical.col);
 }
 
-function pieceDescription(piece: number): string {
+// Exported for announce.ts, which needs the same wording in the live region as the square
+// labels use -- a piece described one way when focused and another way when it moves is the
+// sort of inconsistency only a screen-reader user would ever hit.
+export function pieceDescription(piece: number): string {
   switch (piece) {
     case BLACK_MAN:
       return "black man";

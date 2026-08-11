@@ -18,6 +18,18 @@
       <p id="status" role="status"></p>
       <p>A static preview of the opening position. Play arrives in a later phase.</p>
       <div id="board-root"></div>
+      <!--
+        The move live region (R-48). It lives here rather than being created in render(),
+        which rebuilds the board on every interaction: a live region that is replaced
+        between the update and the announcement is not reliably announced at all.
+      -->
+      <p
+        id="announcer"
+        class="visually-hidden"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      ></p>
       <p>
         <a href="https://github.com/fthiess/checkers-demo">How this is being built</a>
       </p>

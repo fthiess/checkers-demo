@@ -117,6 +117,8 @@ there is nothing else in the way.
   (R-7), the network-address disclosure notice (R-56), and a clear unreachable-network
   message.
   *Accepts:* the flow is comprehensible to someone who has not read this document.
+  Also finishes R-48: task 3.5 built the live region and left connection-status
+  announcements out, because no transport existed yet to have states worth announcing.
 
 **Live test at end of phase 1** — the session owner and a second person, on two different
 networks, connect and move the token. Two tabs on one machine will not do: the whole risk this
@@ -271,10 +273,28 @@ most reliable way to end up not having it.
   didn't reach the focused element in this environment, confirmed as a tooling quirk, not
   an app bug, before switching verification approach) — origin emptied, destination
   populated, piece count unchanged, exactly as a mouse-driven move would produce.
-- ☐ **3.5 Screen-reader announcements.** Square labels and a live region for moves, turn
+- ☑ **3.5 Screen-reader announcements.** Square labels and a live region for moves, turn
   changes, connection status, and result (R-48).
   *Accepts:* a move is announced in words that identify the piece, origin, destination, and
   any captures.
+  *Built 2026-08-11.* Square labels already landed with 3.4, so this task is the live region:
+  `src/ui/announce.ts` — `describeMove`, `describeTurn`, `describeResult`, and the
+  `moveAnnouncement` that composes them into one utterance per completed move, kept pure and
+  DOM-free like `board.ts` and `input.ts`. Words, not notation: `11x18` is what the PDN
+  export needs, not what someone listening needs. The region itself is a `role="status"`
+  element declared in `index.html` rather than created in `render()` — `render()` replaces
+  the board's whole subtree on every interaction, and a live region replaced between its text
+  being set and being read announces nothing at all, which is the same class of trap that
+  cost keyboard focus in 3.4. `input.ts` gained `findMove`, the matcher `attemptMove` already
+  ran internally, so announcing a move doesn't require a second implementation of "what move
+  does this resolve to"; both input styles commit through one `commitMove` in `main.ts` for
+  the same reason. Verified in the dev server by playing real moves with the mouse (a simple
+  move and a capture) and by keyboard: the region carries the right words, updates only on a
+  committed move rather than on selection or navigation, and stays invisible on screen.
+  **Connection-status announcements are not built** — `net/` does not exist yet (Phase 1 is
+  unstarted), so there are no status transitions to announce and any wording now would be a
+  guess at states the transport hasn't defined. The region and the `announce()` entry point
+  are in place for tasks 1.2 and 1.5 to call; R-48 is only fully met once they do.
 - ☐ **3.6 Move wiring.** Connect the interface to the engine and the transport; both clients
   validate inbound moves and compare state hashes (R-57, R-35).
   *Accepts:* an illegal inbound move is rejected; an injected divergence halts play with a
