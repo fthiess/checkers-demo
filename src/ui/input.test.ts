@@ -8,7 +8,7 @@ import {
   WHITE_MAN,
 } from "../engine/board.ts";
 import { applyMove, generateMoves } from "../engine/moves.ts";
-import { attemptMove, type InputState, selectSquare } from "./input.ts";
+import { attemptMove, type InputState, legalDestinations, selectSquare } from "./input.ts";
 
 function positionFrom(pieces: Record<number, number>, sideToMove: Side, plyCount = 0): Position {
   const squares = new Int8Array(BOARD_SIZE);
@@ -82,5 +82,40 @@ describe("attemptMove", () => {
     expect(next.position.squares[22]).toBe(BLACK_MAN);
     expect(next.position.squares[8]).toBe(0);
     expect(next.position.squares[17]).toBe(0);
+  });
+});
+
+describe("legalDestinations", () => {
+  it("is empty when nothing is selected", () => {
+    const state: InputState = { position: createOpeningPosition(), selected: null };
+    expect(legalDestinations(state)).toEqual([]);
+  });
+
+  it("lists a simple-move-only piece's destinations as non-captures", () => {
+    const opening = createOpeningPosition();
+    const state: InputState = { position: opening, selected: 8 };
+    expect(legalDestinations(state)).toEqual([
+      { square: 12, capture: false },
+      { square: 13, capture: false },
+    ]);
+  });
+
+  it("previews the full chain: both the one-jump and two-jump destinations appear (R-14)", () => {
+    const position = positionFrom({ 4: BLACK_MAN, 8: WHITE_MAN, 17: WHITE_MAN }, "black");
+    const state: InputState = { position, selected: 4 };
+    expect(legalDestinations(state)).toEqual([
+      { square: 13, capture: true },
+      { square: 22, capture: true },
+    ]);
+  });
+
+  it("lists simple and capture destinations together when both are available", () => {
+    const position = positionFrom({ 13: BLACK_MAN, 16: WHITE_MAN, 24: WHITE_MAN }, "black");
+    const state: InputState = { position, selected: 13 };
+    expect(legalDestinations(state)).toEqual([
+      { square: 17, capture: false },
+      { square: 20, capture: true },
+      { square: 29, capture: true },
+    ]);
   });
 });
