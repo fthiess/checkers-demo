@@ -251,9 +251,26 @@ most reliable way to end up not having it.
   clears the old highlight); the capture-vs-simple styling itself is simple class-driven
   CSS already covered by the four passing unit tests, with no capture available to
   visually demo from the static opening position.
-- ☐ **3.4 Keyboard operation.** Grid semantics, arrow navigation, select and place, cancel,
+- ☑ **3.4 Keyboard operation.** Grid semantics, arrow navigation, select and place, cancel,
   visible focus (R-46, R-47).
   *Accepts:* a complete game is playable using only the keyboard.
+  *Built 2026-08-11.* Board restructured from a flat CSS Grid to nested Flexbox rows so the
+  DOM actually nests `role="grid"` → `role="row"` → `role="gridcell"`, matching what R-47
+  semantics expect rather than faking it with `aria-rowindex`/`aria-colindex`. Roving
+  tabindex; Left/Right move to the next dark square in the same row (2 columns over, since
+  the light square between them isn't a valid stop); Up/Down move diagonally (no dark
+  square sits directly above another), preferring the left neighbour and falling back right
+  at an edge — a documented, non-obvious choice given the geometry doesn't offer a cleaner
+  option. Enter/Space compose `selectSquare`/`attemptMove` the same as the other two input
+  styles; Escape uses a new `clearSelection`. Square labels fold in selected/destination/
+  capture state (R-47) — screen-reader/keyboard users can't see 3.3's highlight dots, so
+  this isn't optional. `render()` rebuilds the whole DOM on every interaction, which would
+  otherwise silently drop focus after every move; fixed by explicitly restoring it to the
+  matching new element every render. Verified with a full select → arrow-navigate → commit
+  move via dispatched keyboard events (the automated browser's OS-level key simulation
+  didn't reach the focused element in this environment, confirmed as a tooling quirk, not
+  an app bug, before switching verification approach) — origin emptied, destination
+  populated, piece count unchanged, exactly as a mouse-driven move would produce.
 - ☐ **3.5 Screen-reader announcements.** Square labels and a live region for moves, turn
   changes, connection status, and result (R-48).
   *Accepts:* a move is announced in words that identify the piece, origin, destination, and

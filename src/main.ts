@@ -4,13 +4,25 @@ import {
   BLACK_KING,
   BLACK_MAN,
   createOpeningPosition,
+  EMPTY,
   type Side,
   type SquareIndex,
   WHITE_KING,
 } from "./engine/board.ts";
 import { describeLaunchContext, launchContextFor } from "./launch-context.ts";
-import { computeBoardLayout, squareAtOrientedCoordinates } from "./ui/board.ts";
-import { attemptMove, type InputState, legalDestinations, selectSquare } from "./ui/input.ts";
+import {
+  computeBoardLayout,
+  orientSquare,
+  squareAtOrientedCoordinates,
+  squareLabel,
+} from "./ui/board.ts";
+import {
+  attemptMove,
+  clearSelection,
+  type InputState,
+  legalDestinations,
+  selectSquare,
+} from "./ui/input.ts";
 
 const status = document.querySelector<HTMLParagraphElement>("#status");
 if (status) {
@@ -24,6 +36,11 @@ const VIEWING_SIDE: Side = "black";
 
 let state: InputState = { position: createOpeningPosition(), selected: null };
 
+// Roving tabindex (R-46): exactly one square is ever tabbable at a time; arrow keys move
+// which one. Separate from state.selected -- moving keyboard focus around the board never
+// by itself picks up a piece.
+let focusedSquare: SquareIndex = 0;
+
 // Piece elements handle both "tap to select" and "drag to move" via pointer events, and
 // deliberately have no separate click listener: a plain click still fires pointerdown then
 // pointerup, and a redundant click handler alongside that would re-toggle the selection
@@ -33,12 +50,26 @@ let dragOrigin: SquareIndex | null = null;
 let dragEl: HTMLElement | null = null;
 let boardElRef: HTMLElement | null = null;
 
-function handleSquareClick(square: SquareIndex): void {
-  state = attemptMove(state, square);
+function activateSquare(square: SquareIndex): void {
+  focusedSquare = square;
+  if (state.selected !== null && state.selected !== square) {
+    const after = attemptMove(state, square);
+    if (after !== state) {
+      state = after;
+      render();
+      return;
+    }
+  }
+  state = selectSquare(state, square);
   render();
 }
 
+function handleSquareClick(square: SquareIndex): void {
+  activateSquare(square);
+}
+
 function handlePiecePointerDown(event: PointerEvent, square: SquareIndex): void {
+  focusedSquare = square;
   state = selectSquare(state, square);
   dragOrigin = square;
   dragEl = event.currentTarget as HTMLElement;
@@ -81,6 +112,63 @@ function handleBoardPointerCancel(): void {
   render();
 }
 
+// Left/Right move to the next dark square in the same row (2 columns over -- the light
+// square between them isn't a valid stop). There's no dark square directly above or below
+// another, so Up/Down move diagonally, preferring the left neighbour and falling back to
+// the right one at an edge; Left/Right afterward reach the rest of that row.
+function moveFocusInRow(deltaCol: number): void {
+  const { row, col } = orientSquare(focusedSquare, VIEWING_SIDE);
+  const next = squareAtOrientedCoordinates(row, col + deltaCol, VIEWING_SIDE);
+  if (next !== undefined) {
+    focusedSquare = next;
+    render();
+  }
+}
+
+function moveFocusBetweenRows(deltaRow: number): void {
+  const { row, col } = orientSquare(focusedSquare, VIEWING_SIDE);
+  const next =
+    squareAtOrientedCoordinates(row + deltaRow, col - 1, VIEWING_SIDE) ??
+    squareAtOrientedCoordinates(row + deltaRow, col + 1, VIEWING_SIDE);
+  if (next !== undefined) {
+    focusedSquare = next;
+    render();
+  }
+}
+
+function handleBoardKeyDown(event: KeyboardEvent): void {
+  switch (event.key) {
+    case "ArrowLeft":
+      event.preventDefault();
+      moveFocusInRow(-2);
+      break;
+    case "ArrowRight":
+      event.preventDefault();
+      moveFocusInRow(2);
+      break;
+    case "ArrowUp":
+      event.preventDefault();
+      moveFocusBetweenRows(-1);
+      break;
+    case "ArrowDown":
+      event.preventDefault();
+      moveFocusBetweenRows(1);
+      break;
+    case "Enter":
+    case " ":
+      event.preventDefault();
+      activateSquare(focusedSquare);
+      break;
+    case "Escape":
+      event.preventDefault();
+      state = clearSelection(state);
+      render();
+      break;
+    default:
+      break;
+  }
+}
+
 function render(): void {
   if (!boardRoot) return;
   boardRoot.replaceChildren();
@@ -89,29 +177,60 @@ function render(): void {
   const destinations = new Map(legalDestinations(state).map((d) => [d.square, d.capture]));
   const board = document.createElement("div");
   board.className = "board";
+  board.setAttribute("role", "grid");
+  board.setAttribute("aria-label", "Checkers board");
   boardElRef = board;
 
-  for (const square of layout.squares) {
-    const el = document.createElement("div");
-    el.className = `square ${square.dark ? "square--dark" : "square--light"}`;
-    el.style.gridRow = String(square.row + 1);
-    el.style.gridColumn = String(square.col + 1);
-    const index = squareAtOrientedCoordinates(square.row, square.col, VIEWING_SIDE);
-    if (index !== undefined) {
-      el.addEventListener("click", () => handleSquareClick(index));
-      if (destinations.has(index)) {
-        el.classList.add("square--destination");
-        if (destinations.get(index)) {
-          el.classList.add("square--capture");
+  const squareElements = new Map<SquareIndex, HTMLElement>();
+
+  for (let row = 0; row < 8; row++) {
+    const rowEl = document.createElement("div");
+    rowEl.className = "board__row";
+    rowEl.setAttribute("role", "row");
+
+    for (let col = 0; col < 8; col++) {
+      const dark = (row + col) % 2 === 1;
+      const el = document.createElement("div");
+      el.className = `square ${dark ? "square--dark" : "square--light"}`;
+      el.setAttribute("role", "gridcell");
+
+      const index = squareAtOrientedCoordinates(row, col, VIEWING_SIDE);
+      if (index === undefined) {
+        el.setAttribute("aria-hidden", "true");
+      } else {
+        const piece = state.position.squares[index] ?? EMPTY;
+        const isSelected = index === state.selected;
+        const destinationCapture = destinations.get(index);
+        el.setAttribute(
+          "aria-label",
+          squareLabel(index + 1, piece, {
+            selected: isSelected,
+            destination: destinations.has(index),
+            capture: destinationCapture === true,
+          }),
+        );
+        el.setAttribute("aria-selected", String(isSelected));
+        el.tabIndex = index === focusedSquare ? 0 : -1;
+        el.addEventListener("click", () => handleSquareClick(index));
+        if (destinations.has(index)) {
+          el.classList.add("square--destination");
+          if (destinationCapture) {
+            el.classList.add("square--capture");
+          }
         }
+        squareElements.set(index, el);
       }
+
+      rowEl.appendChild(el);
     }
-    board.appendChild(el);
+
+    board.appendChild(rowEl);
   }
 
   for (const piece of layout.pieces) {
     const index = squareAtOrientedCoordinates(piece.row, piece.col, VIEWING_SIDE);
     const el = document.createElement("div");
+    el.setAttribute("aria-hidden", "true");
     const isKing = piece.piece === BLACK_KING || piece.piece === WHITE_KING;
     const isBlack = piece.piece === BLACK_MAN || piece.piece === BLACK_KING;
     const isSelected = index !== undefined && index === state.selected;
@@ -133,8 +252,14 @@ function render(): void {
   board.addEventListener("pointermove", handleBoardPointerMove);
   board.addEventListener("pointerup", handleBoardPointerUp);
   board.addEventListener("pointercancel", handleBoardPointerCancel);
+  board.addEventListener("keydown", handleBoardKeyDown);
 
   boardRoot.appendChild(board);
+
+  // render() rebuilds every element on every interaction, which would otherwise silently
+  // drop keyboard focus after every move (R-46 wants it visible at all times, not just
+  // between moves).
+  squareElements.get(focusedSquare)?.focus();
 }
 
 render();

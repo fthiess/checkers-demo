@@ -7,6 +7,8 @@
  */
 
 import {
+  BLACK_KING,
+  BLACK_MAN,
   BOARD_SIZE,
   coordinatesToSquareIndex,
   EMPTY,
@@ -14,6 +16,8 @@ import {
   type Side,
   type SquareIndex,
   squareToCoordinates,
+  WHITE_KING,
+  WHITE_MAN,
 } from "../engine/board.ts";
 
 export interface ScreenCoordinates {
@@ -41,6 +45,41 @@ export function squareAtOrientedCoordinates(
 ): SquareIndex | undefined {
   const canonical = viewingSide === "white" ? { row, col } : { row: 7 - row, col: 7 - col };
   return coordinatesToSquareIndex(canonical.row, canonical.col);
+}
+
+function pieceDescription(piece: number): string {
+  switch (piece) {
+    case BLACK_MAN:
+      return "black man";
+    case BLACK_KING:
+      return "black king";
+    case WHITE_MAN:
+      return "white man";
+    case WHITE_KING:
+      return "white king";
+    default:
+      return "empty";
+  }
+}
+
+export interface SquareLabelOptions {
+  readonly selected?: boolean;
+  readonly destination?: boolean;
+  readonly capture?: boolean;
+}
+
+// Screen-reader/keyboard users can't see the 3.3 highlight dots, so a square's own label
+// carries that state too (R-47) -- otherwise there would be no way to know which squares
+// are legal destinations at all, not just a missing nicety.
+export function squareLabel(
+  squareNumber: number,
+  piece: number,
+  options: SquareLabelOptions = {},
+): string {
+  let label = `Square ${squareNumber}, ${pieceDescription(piece)}`;
+  if (options.selected) label += ", selected";
+  if (options.destination) label += options.capture ? ", legal capture" : ", legal destination";
+  return label;
 }
 
 export interface SquareLayout {

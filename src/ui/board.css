@@ -3,20 +3,36 @@
  * plain working defaults, not the polished version.
  */
 
+/*
+ * Nested flexbox rather than CSS Grid: role="row"/role="gridcell" (R-47) expect the DOM to
+ * actually nest that way, so the row structure needed for accessible semantics and the
+ * visual layout are the same structure here rather than two things kept in sync by hand.
+ */
 .board {
   position: relative;
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  grid-template-rows: repeat(8, 1fr);
+  display: flex;
+  flex-direction: column;
   width: min(90vw, 32rem);
   aspect-ratio: 1;
   margin: 1.5rem auto;
   border: 1px solid var(--ink-muted);
 }
 
+.board__row {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+}
+
 .square {
   --square-light: #e8e0d0;
   --square-dark: #8a6a4a;
+  flex: 1;
+}
+
+.square:focus-visible {
+  z-index: 1;
+  outline-offset: -3px;
 }
 
 @media (prefers-color-scheme: dark) {
