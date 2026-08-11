@@ -1,0 +1,70 @@
+/*
+ * Baseline board styling. Colour selection and themes are Phase 4 (R-25, R-28); these are
+ * plain working defaults, not the polished version.
+ */
+
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  width: min(90vw, 32rem);
+  aspect-ratio: 1;
+  margin: 1.5rem auto;
+  border: 1px solid var(--ink-muted);
+}
+
+.square {
+  --square-light: #e8e0d0;
+  --square-dark: #8a6a4a;
+}
+
+@media (prefers-color-scheme: dark) {
+  .square {
+    --square-light: #4a4438;
+    --square-dark: #2a2218;
+  }
+}
+
+.square--light {
+  background: var(--square-light);
+}
+
+.square--dark {
+  background: var(--square-dark);
+}
+
+/*
+ * Pieces are positioned by transform, not grid placement -- moving a piece will later
+ * animate this transform rather than a layout property (DESIGN.md SS6.1).
+ */
+.piece {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12.5%;
+  height: 12.5%;
+}
+
+.piece::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.piece--black::before {
+  background: #1c1a17;
+  border: 2px solid #4a453e;
+}
+
+.piece--white::before {
+  background: #fbfaf7;
+  border: 2px solid #c3bcac;
+}
+
+.piece--king::before {
+  outline: 3px solid var(--accent);
+  outline-offset: -6px;
+}
