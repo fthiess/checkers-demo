@@ -160,14 +160,12 @@ assigned:
 
 - **Phase 2, the rules engine**, is the better first phase for someone new to this toolchain.
   It is pure functions with fast feedback, heavily specified in `REQUIREMENTS.md` §5, and
-  isolated from everything else — so mistakes are cheap and local. It is also unblocked by
-  issue #6.
+  isolated from everything else — so mistakes are cheap and local.
 - **Phase 1, the walking skeleton**, carries the project's real risk: WebRTC, manual
   signaling, and the first connection between two browsers on two networks. It wants someone
   comfortable with connectivity work, and its live test needs a second person on a different
-  network. It also has to settle
-  [issue #6](https://github.com/fthiess/checkers-demo/issues/6) at task 1.1 before `game/` is
-  written — a design question that must be decided, not worked around.
+  network. Its first task, 1.1, is done: the transport and message contracts exist in
+  `protocol/`, and the design question that blocked them (issue #6) is settled in D-21.
 
 Recommend Phase 2 if the choice is genuinely open, and say why rather than just asserting it.
 

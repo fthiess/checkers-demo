@@ -103,19 +103,21 @@ Phase 1 needs.
   connectivity work. It is a serial thread: 1.3 depends on 1.2, and 1.4 on both, so it does
   not split across two people.
 - **Phase 2, the rules engine**, is pure work with almost no unknown risk, and is unblocked
-  by everything — including issue #6, which only affects `game/` and `net/`.
+  by everything.
 
 Rebase before pushing. You will not clobber each other's files, but you do land on the same
 `main`, and it moves.
 
 ## Before you start Phase 1
 
-[Issue #6](https://github.com/fthiess/checkers-demo/issues/6) has to be settled at task 1.1.
-`DESIGN.md` §1's diagram and §2's table disagree about whether `game/` may import `net/`, the
-lint rules follow the table, and the session state machine needs the `Transport` type that
-lives in `net/`. The rule was deliberately left strict so it fails loudly rather than being
-quietly relaxed. Settle the design question and update `biome.json`, `CLAUDE.md`'s table, and
-`DESIGN.md` together — do not work around the lint.
+Issue #6 — whether `game/` may import `net/` for the `Transport` type — was settled at task
+1.1 and is closed. The answer is a `protocol/` module holding the interfaces and the message
+schema, which `game/` and `net/` may both import (D-21). If you find yourself wanting to
+reach across that line anyway, read the decision before assuming it was an oversight.
+
+The dependency rule is deliberately strict so that it fails loudly rather than being quietly
+relaxed. If a later question like #6 turns up, settle it and update `biome.json`,
+`CLAUDE.md`'s table, and `DESIGN.md` together — do not work around the lint.
 
 ## The gate
 
