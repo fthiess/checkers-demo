@@ -8,7 +8,13 @@ import {
   WHITE_MAN,
 } from "../engine/board.ts";
 import { applyMove, generateMoves } from "../engine/moves.ts";
-import { attemptMove, type InputState, legalDestinations, selectSquare } from "./input.ts";
+import {
+  attemptMove,
+  clearSelection,
+  type InputState,
+  legalDestinations,
+  selectSquare,
+} from "./input.ts";
 
 function positionFrom(pieces: Record<number, number>, sideToMove: Side, plyCount = 0): Position {
   const squares = new Int8Array(BOARD_SIZE);
@@ -82,6 +88,18 @@ describe("attemptMove", () => {
     expect(next.position.squares[22]).toBe(BLACK_MAN);
     expect(next.position.squares[8]).toBe(0);
     expect(next.position.squares[17]).toBe(0);
+  });
+});
+
+describe("clearSelection", () => {
+  it("clears an existing selection", () => {
+    const state: InputState = { position: createOpeningPosition(), selected: 8 };
+    expect(clearSelection(state).selected).toBeNull();
+  });
+
+  it("is a no-op when nothing is selected", () => {
+    const state: InputState = { position: createOpeningPosition(), selected: null };
+    expect(clearSelection(state)).toEqual(state);
   });
 });
 

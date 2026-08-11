@@ -49,6 +49,12 @@ export function selectSquare(state: InputState, square: SquareIndex): InputState
   return state;
 }
 
+// The keyboard's Escape ("cancel") needs to clear a selection unconditionally, unlike
+// selectSquare, which only deselects when the same square is activated again.
+export function clearSelection(state: InputState): InputState {
+  return state.selected === null ? state : { ...state, selected: null };
+}
+
 export interface DestinationHighlight {
   readonly square: SquareIndex;
   readonly capture: boolean;

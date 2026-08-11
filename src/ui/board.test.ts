@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { BLACK_MAN, BOARD_SIZE, createOpeningPosition, WHITE_MAN } from "../engine/board.ts";
-import { computeBoardLayout, orientSquare, squareAtOrientedCoordinates } from "./board.ts";
+import {
+  BLACK_KING,
+  BLACK_MAN,
+  BOARD_SIZE,
+  createOpeningPosition,
+  EMPTY,
+  WHITE_MAN,
+} from "../engine/board.ts";
+import {
+  computeBoardLayout,
+  orientSquare,
+  squareAtOrientedCoordinates,
+  squareLabel,
+} from "./board.ts";
 
 describe("orientSquare", () => {
   it("is the identity for a white viewer", () => {
@@ -26,6 +38,28 @@ describe("squareAtOrientedCoordinates", () => {
 
   it("returns undefined for a light square's screen position", () => {
     expect(squareAtOrientedCoordinates(0, 0, "black")).toBeUndefined();
+  });
+});
+
+describe("squareLabel", () => {
+  it("describes an empty square", () => {
+    expect(squareLabel(9, EMPTY)).toBe("Square 9, empty");
+  });
+
+  it("describes each piece kind", () => {
+    expect(squareLabel(9, BLACK_MAN)).toBe("Square 9, black man");
+    expect(squareLabel(9, BLACK_KING)).toBe("Square 9, black king");
+    expect(squareLabel(30, WHITE_MAN)).toBe("Square 30, white man");
+  });
+
+  it("appends selected and destination state", () => {
+    expect(squareLabel(9, BLACK_MAN, { selected: true })).toBe("Square 9, black man, selected");
+    expect(squareLabel(14, EMPTY, { destination: true })).toBe(
+      "Square 14, empty, legal destination",
+    );
+    expect(squareLabel(14, EMPTY, { destination: true, capture: true })).toBe(
+      "Square 14, empty, legal capture",
+    );
   });
 });
 
