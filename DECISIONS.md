@@ -834,3 +834,72 @@ condition only suppresses the case where moving it was never wanted. Verified af
 focus stayed on the Copy button through an opponent's move, an abandoned drag's pointerup
 committed nothing, and keyboard navigation and its focus restoration still work across
 renders.
+
+---
+
+## D-26 — Nothing inbound is trusted, and a disagreement stops the game
+
+**Date:** 2026-08-12 · **Session owner's call**
+
+**Context.** Task 1.4 carried moves between the two clients but checked nothing: an inbound
+move that matched no legal move was silently ignored, and the state hash travelled with every
+move and was read by nobody. §4.2 says an illegal move "is rejected and an `error` is
+returned" without saying whether play continues; §4.3 says a hash mismatch halts. Separately,
+[issue #30](https://github.com/fthiess/checkers-demo/issues/30) had been left open since task
+1.2 for "the session state machine", asking whether a message that fails to *decode* should
+also draw a reply, and noting that any auto-reply needs a loop guard.
+
+**Decision.** Three checks, all of which stop the game rather than continuing:
+
+1. **An inbound move is validated against this client's own engine** (R-57). No match: reject
+   it, send `error`/`illegalMove`, and **halt**.
+2. **The sender's hash is compared with this client's own**, computed on the position the
+   move would produce, *before* anything is committed. Mismatch: send
+   `error`/`stateDivergence` and halt (§4.3, R-35).
+3. **An inbound `error` halts too**, on the grounds that a peer rejecting our move is the same
+   disagreement seen from the other end. It is **never answered**, which is the loop guard for
+   this path.
+
+For issue #30: an undecodable message **does** draw one `error`/`malformedMessage` reply,
+**at most once per connection**, and never for `outOfOrder`. Issue #30 is closed by this
+entry.
+
+**Why.** Halting on an illegal move goes beyond §4.2's literal words, and deliberately. A
+peer only sends a move it believed legal, so if this client disagrees the two boards have
+already diverged — and the codec's sequence check has already filtered the benign
+explanations, duplicates and replays, before the session ever sees it. Rejecting the move but
+playing on is precisely the "continuing from an inconsistent state" R-35 forbids; it would
+just take longer to notice.
+
+Comparing the hash before committing matters for one specific reason: applying the move and
+*then* reporting the divergence would leave the board showing a position the message on top
+of it says is wrong.
+
+The obvious loop guard for #30 — never answer an `error` — cannot work for undecodable
+input, and that is the whole difficulty the issue flagged. Bytes that failed to decode cannot
+be inspected to find out whether they were an `error`, which is exactly the case that would
+loop forever. A hard cap of one reply per connection bounds any exchange to two messages
+regardless of what the far end does. `outOfOrder` is excluded because it is not a failure
+worth reporting: it means a duplicate, which is harmless and already dropped.
+
+Nothing halts locally on an undecodable message, which looks asymmetric and is not. If the
+message was a move, this client is now a move behind, so the *next* move to arrive fails
+either the recovery check or the hash check and halts this side — while the peer halts on the
+`error` it received. Both stop, through machinery that already exists, without a third halt
+path that could disagree with the other two about why.
+
+**Consequences.** The halt is **terminal in v1**: there is no resume, because reconciling two
+histories is `sync`'s job and that is task 5.4. Its message is therefore the last thing either
+player sees, which is why the text is plain language rather than a protocol code, and why the
+divergence wording says explicitly that it is a bug rather than something a player did
+(R-58's trust model means blaming the opponent would be both rude and usually wrong). A
+halted session refuses local moves and further inbound ones; the interface stops accepting
+selections and drags but **keeps letting focus move**, since reading a stopped board is
+reasonable and trapping the keyboard would be a second bug.
+
+The reply to undecodable messages sits in the composition root rather than in `game/`, because
+`onProtocolError` is not one of §4.1's four `Transport` methods and `game/` may not see
+`net/` at all. That is the module rule working: the alternative is promoting `onProtocolError`
+into `protocol/`'s `Transport`, which is a contract change worth making deliberately if a
+second thing ever needs it, not as a side effect of this one (issue #31 covers the composition
+root's own home).

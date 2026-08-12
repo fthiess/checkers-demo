@@ -17,6 +17,13 @@
       </p>
       <p id="status" role="status"></p>
       <p>A static preview of the opening position. Play arrives in a later phase.</p>
+      <!--
+        Game-level trouble: the two clients disagreeing about the board (R-35). Declared here
+        rather than built in render(), for the same reason the live region below is — a
+        role="alert" element that is replaced in the same breath as its text is not reliably
+        announced, and this is the one message in the application nobody can afford to miss.
+      -->
+      <p id="game-status" class="game-status" role="alert"></p>
       <div id="board-root"></div>
       <!--
         The move live region (R-48). It lives here rather than being created in render(),

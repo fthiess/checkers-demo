@@ -17,7 +17,8 @@ Update this index in the same pull request as any append to the log.
 | --- | --- |
 | **Connectivity and transport** | [D-1](DECISIONS.md#d-1--peer-to-peer-connectivity-via-webrtc-with-manual-signaling) → [D-5](DECISIONS.md#d-5--transport-abstraction-move-intents-and-client-side-validation) → [D-11](DECISIONS.md#d-11--spectators-deferred-to-the-server-transport) → [D-21](DECISIONS.md#d-21--protocol-holds-the-transport-contract-that-game-and-net-share) → [D-22](DECISIONS.md#d-22--the-transport-speaks-sdp-the-signaler-owns-the-block-encoding) → [D-23](DECISIONS.md#d-23--one-public-stun-server-configurable-still-no-turn) → [D-24](DECISIONS.md#d-24--the-block-envelope-carries-an-encoding-marker-and-a-session-id-and-nothing-yet-about-the-player) *(current)*, with [N-4](DECISIONS.md#n-4--transportstatus-is-not-connectionstate-renamed) and [N-5](DECISIONS.md#n-5--secure-context-apis-are-not-available-to-the-deliverable-r-1-actually-describes) *(landmines)* |
 | **Module boundaries** | [D-21](DECISIONS.md#d-21--protocol-holds-the-transport-contract-that-game-and-net-share) → [D-25](DECISIONS.md#d-25--the-session-owns-the-position-and-both-players-moves-reach-it-the-same-way) *(current)* |
-| **Game session and shared state** | [D-25](DECISIONS.md#d-25--the-session-owns-the-position-and-both-players-moves-reach-it-the-same-way) *(current)*, with [N-6](DECISIONS.md#n-6--render-gained-a-second-caller-and-it-was-not-written-for-one) *(landmine)* |
+| **Game session and shared state** | [D-25](DECISIONS.md#d-25--the-session-owns-the-position-and-both-players-moves-reach-it-the-same-way) → [D-26](DECISIONS.md#d-26--nothing-inbound-is-trusted-and-a-disagreement-stops-the-game) *(current)*, with [N-6](DECISIONS.md#n-6--render-gained-a-second-caller-and-it-was-not-written-for-one) *(landmine)* |
+| **Validation and divergence** | [D-26](DECISIONS.md#d-26--nothing-inbound-is-trusted-and-a-disagreement-stops-the-game) |
 | **Rules of play** | [D-2](DECISIONS.md#d-2--american-draughts-with-three-house-modifications) → [D-3](DECISIONS.md#d-3--a-capture-chain-may-be-abandoned-at-any-point) → [D-4](DECISIONS.md#d-4--draws-by-agreement-only-with-a-non-binding-advisory) *(current)* |
 | **Rules engine internals** | [D-8](DECISIONS.md#d-8--the-move-generator-emits-capture-chain-prefixes-as-first-class-moves) |
 | **Sides, colour, and theme** | [D-7](DECISIONS.md#d-7--logical-sides-are-separate-from-display-colours) → [D-9](DECISIONS.md#d-9--contrast-validation-at-selection-plus-a-non-colour-side-marker) *(current)* |
@@ -56,6 +57,10 @@ Decisions whose consequences bite silently, worth knowing before you touch the r
   `main.ts`'s `render()` rebuilds everything, and since task 1.4 an opponent's move can call
   it at any moment, including halfway through a local gesture. Fourth instance of this family
   after 3.2, 3.4 and 3.5, and the first that using the interface alone cannot find.
+- **[D-26](DECISIONS.md#d-26--nothing-inbound-is-trusted-and-a-disagreement-stops-the-game)** —
+  the halt is **terminal in v1**. There is no resume until `sync` reconciliation exists (task
+  5.4), so its message is the last thing either player sees. Anything that can halt should be
+  sure it means it.
 
 ## Open questions
 

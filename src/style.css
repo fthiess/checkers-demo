@@ -194,3 +194,24 @@ a:visited {
   }
 }
 /* biome-ignore-end lint/complexity/noImportantStyles: end of the reduced-motion reset. */
+
+/*
+ * The one message in the application that must not be missed: the two clients disagreeing
+ * about the board (R-35). Empty and taking no space until it has something to say, collapsed
+ * with margins rather than `display: none` for the same reason the panel's regions are — a
+ * live region hidden and revealed in the same frame as its text is not reliably announced.
+ *
+ * It carries no colour of its own: the message is the meaning, and nothing here should depend
+ * on being able to see that it is red (R-27's principle, applied outside the board).
+ */
+.game-status:empty {
+  margin: 0;
+}
+
+.game-status {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  font-weight: 600;
+}
