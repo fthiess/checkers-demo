@@ -429,6 +429,18 @@ Everything around the game rather than in it.
   *Accepts:* the exported file is accepted by an independent PDN reader.
 - ☐ **5.7 Emotes.** A small fixed reaction set, delivered over the existing protocol (R-32).
   *Accepts:* no free-text path exists.
+- ☐ **5.8 Shareable invitation link.** When served over HTTP(S), offer the creator's
+  invitation as a link carrying the block in the URL fragment, and read a fragment on load
+  so a joiner arriving by link lands on the reply step (R-8, [DESIGN.md §4.5](DESIGN.md),
+  issue #34). The reply still returns as a pasted block.
+  *Accepts:* the control is absent under `file://`; a link opened in a second browser
+  reaches the reply step with nothing pasted by hand.
+  *Scheduled here rather than in Phase 1 because R-8 is an additional convenience over a
+  connection flow that already works — Phase 1's charter is the risky path with no polish,
+  and a second entry path would widen exactly the surface that phase exists to narrow.
+  Task 1.3 built the encoding it needs, and measured blocks at 816–817 characters: within
+  every browser's URL limit, but past what some chat clients linkify without truncating,
+  which fails silently and looks like a corrupt block at the far end.*
 
 ## Phase 6 — AI opponent
 
