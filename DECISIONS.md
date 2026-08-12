@@ -557,3 +557,105 @@ deliberate violations from `protocol/` to `net/`, from `ui/` to `protocol/`, and
 is untouched and slightly strengthened: the module a future `HttpPollingTransport` must
 satisfy is now a named, self-contained thing rather than a shape embedded in the peer-to-peer
 implementation. Issue #6 is closed.
+
+---
+
+## D-22 — The transport speaks SDP; the signaler owns the block encoding
+
+**Date:** 2026-08-11 · **Session owner's call**
+
+**Context.** §4.5 describes what a person actually carries between the two browsers: a
+compressed, base64url-encoded block, pasted into a chat window or an email. `protocol/`
+declares that shape as `Signaler`, whose three methods take and return a `SignalBlob`
+string. Task 1.2 had to build the WebRTC end of the same handshake, and the obvious
+shortcut was to have `WebRtcTransport` implement `Signaler` directly — one object, one set
+of three methods, no second type to keep in step.
+
+**Decision.** It does not. `WebRtcTransport` extends `Transport` with its own
+`createOffer`/`acceptOffer`/`acceptAnswer`, and those three deal in
+`RTCSessionDescriptionInit` — raw SDP. The compression, the base64url encoding, and the
+`SignalBlob` type stay in `ManualSignaler` (task 1.3), which wraps the transport rather
+than being it.
+
+The peer connection itself is created through an injected factory,
+`WebRtcTransportOptions.createPeerConnection`, defaulting to `new RTCPeerConnection(...)`.
+
+**Why.** The block format belongs to the channel a human carries it through, not to the
+connection. Every property the format has — that it survives an email client re-flowing
+whitespace, that it is short enough to paste — is a fact about email and chat windows, and
+none of it is a fact about WebRTC. Fusing them would mean a future `ServerSignaler`
+(D-1's migration path, §9) either inherits an encoding it has no use for or forces a change
+to the transport to shed it, and §9's whole claim is that the transport swap does not reach
+into anything else.
+
+The injected factory is a testability decision with only one available answer:
+`RTCPeerConnection` does not exist outside a browser, and this project adds no dependency
+to simulate one (the standing preference for minimal dependencies, and every dependency on
+a public repository being a supply-chain surface). Injection is therefore the only route to
+unit tests that exercise the state machine at all.
+
+**Consequences.** There are two layers where a shortcut would have left one, and task 1.3
+must keep them in step: `SignalBlob` in and out at the `Signaler` boundary,
+`RTCSessionDescriptionInit` in and out at the transport's. In exchange, `net/` can be
+unit-tested headlessly with no browser and no `jsdom`, and the uncompressed offer measured
+in 1.2 (~1050 characters, against §4.5's ~1000-character estimate for a *compressed* one)
+is a problem confined entirely to the signaler.
+
+---
+
+## D-23 — One public STUN server, configurable; still no TURN
+
+**Date:** 2026-08-11 · **Session owner's call**
+
+**Context.** ICE gathering needs at least one STUN server to learn the peer's public
+address, and the transport had to name a default. D-1 chose peer-to-peer WebRTC with no
+server of the project's own, which rules out running one.
+
+**Decision.** `stun:stun.l.google.com:19302`, exposed as
+`WebRtcTransportOptions.iceServers` so any caller can replace it. No TURN relay, unchanged
+from D-1 and §4.5.
+
+**Why.** It is the conventional public default, needs no key or account, and nothing is
+load-bearing on it: if it is unreachable, gathering yields host candidates only, which is
+the same degraded case D-1 already accepted by declining TURN. Making it configurable
+costs one option field and means a later decision to point elsewhere is not a code change
+in `net/`.
+
+On privacy (R-56): a STUN server learns only that some client is gathering candidates, and
+its address. It never sees a move, a board, or a player. That is a strictly smaller
+disclosure than the one the design already makes — the two peers exchange their own direct
+addresses with each other, by hand, and that exchange is the point of the architecture
+rather than an incidental leak.
+
+**Consequences.** Two peers behind symmetric or carrier-grade NAT may fail to connect at
+all, with no relay to fall back on. This is the risk D-1 took knowingly and the reason the
+phase's live test must use two genuinely separate internet connections rather than two
+routers on one; a success across one connection proves paths that do not exist between two
+houses. If that test fails, the decision to reconsider is D-1's, not this entry's.
+
+---
+
+## N-4 — `TransportStatus` is not `connectionState` renamed
+
+**Date:** 2026-08-11
+
+**Note.** §4.1's six `TransportStatus` values map one-to-one onto
+`RTCPeerConnection.connectionState`'s six — `new`→`idle`, `connecting`→`connecting`,
+`connected`→`connected`, `disconnected`→`reconnecting`, `failed`→`failed`,
+`closed`→`closed` — and the resemblance is close enough to invite simplifying the mapping
+away. There is one deliberate exception. A peer connection reports `connected` while its
+data channel is still opening, so the transport publishes `connecting` until
+`channel.readyState === "open"`, and only then `connected`.
+
+**Why it is written down.** `send` throws before the channel opens. A status recomputed
+from `connectionState` alone therefore produces a window — short, and longer on a slow
+network, which is exactly when a user is watching the indicator — in which the interface
+says "connected" beside a send path that does not exist. The bug it causes is
+intermittent, timing-dependent, and would be blamed on the network rather than on the
+mapping.
+
+**Consequences.** `currentStatus()` in `src/net/webrtc-transport.ts` is the single place
+this is decided, and it consults both the connection and the channel. Anything that
+recomputes status from `connectionState` elsewhere reintroduces the gap. Note also that
+`closed` is checked before the switch: an explicit `close()` reports `closed` immediately
+rather than waiting for the connection to catch up.
