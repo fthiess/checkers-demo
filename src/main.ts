@@ -1,5 +1,6 @@
 import "./style.css";
 import "./ui/board.css";
+import { mountConnectionPanel } from "./connection-panel.ts";
 import {
   BLACK_KING,
   BLACK_MAN,
@@ -286,3 +287,8 @@ function render(): void {
 }
 
 render();
+
+const connectionRoot = document.querySelector<HTMLDivElement>("#connection-root");
+if (connectionRoot) {
+  mountConnectionPanel(connectionRoot);
+}

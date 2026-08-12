@@ -120,9 +120,37 @@ there is nothing else in the way.
   table, CLAUDE.md, and `biome.json` were brought into agreement, and the new lint rules were
   checked by hand against three deliberate violations, all refused. No transport
   implementation here — that is 1.2.
-- ☐ **1.2 WebRTC transport.** Implement `WebRtcTransport` with non-trickle ICE against a
+- ☑ **1.2 WebRTC transport.** Implement `WebRtcTransport` with non-trickle ICE against a
   public STUN server.
   *Accepts:* two browser tabs establish a data channel; status transitions are observable.
+  *Built 2026-08-11.* `src/net/webrtc-transport.ts` — `protocol/`'s `Transport` over an
+  `RTCDataChannel`, plus the SDP-level `createOffer`/`acceptOffer`/`acceptAnswer` that task
+  1.3's `ManualSignaler` will wrap with compression and base64url encoding (session owner's
+  call: the transport deals in SDP and never learns how blocks are encoded). Non-trickle —
+  both resolve only once ICE gathering completes, detected via `icegatheringstatechange`
+  reaching `complete` and bounded by a timer so a hopeless network still returns (§4.5,
+  R-9); five seconds is a starting value to be tuned against real connections at the phase
+  live test, not a measured one. §4.1's six statuses turned out to map one-to-one onto
+  `RTCPeerConnection.connectionState`'s six values, with one deliberate exception: a peer
+  connection reporting `connected` while its data channel is still opening is published as
+  `connecting`, because calling it connected would promise a send path that does not exist
+  yet. The connection factory is injected so the transport is unit-testable against a fake —
+  `RTCPeerConnection` does not exist outside a browser and no dependency was added to
+  simulate one (session owner's call). Sending before the channel opens throws rather than
+  queueing or dropping. `onProtocolError` is an addition beyond §4.1, because a peer can
+  send bytes that do not decode and `Transport`'s four methods give nowhere to report it;
+  whether that should also draw an `error` reply is issue #30, left for when `game/` exists.
+  `src/connection-panel.ts` is a **temporary** raw-SDP panel so the acceptance is
+  demonstrable by a person; task 1.3 deletes it. It builds the transport on first click, so
+  a visitor who touches nothing never contacts the STUN server. Verified in two tabs:
+  `idle → connecting → connected` on both sides, a message each way decoded through the
+  codec, and closing one side leaving it `closed` while the other reported `reconnecting`.
+  Two findings for later tasks: the uncompressed offer block runs to about 1050 characters
+  against §4.5's ~1000-character *compressed* estimate, so 1.3's compression has real work
+  to do; and the block plainly contains the machine's public addresses, which is R-56's
+  disclosure in the flesh — the panel carries one sentence about it, but the proper notice
+  is still task 1.5's. The composition root sitting outside the module system, where no lint
+  override reaches it, is issue #31.
 - ☐ **1.3 Manual signaling.** Offer and answer blocks, compressed and base64url-encoded,
   with copy controls and whitespace-tolerant paste (R-5, R-6).
   *Accepts:* a block survives a round trip through an email client without corruption;

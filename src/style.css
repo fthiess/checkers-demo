@@ -88,6 +88,71 @@ a:visited {
 }
 
 /*
+ * Temporary connection panel (task 1.2), deleted along with the panel when task 1.3 supplies
+ * the real signaling interface. Deliberately plain — it is a test harness with a face, not a
+ * design. The 44px control floor is not optional even here (R-50).
+ */
+.panel {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--ink-muted);
+}
+
+.panel__note {
+  font-size: 0.9rem;
+}
+
+.panel__status {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.panel__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.panel__button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid var(--ink-muted);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.panel__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.panel__field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--ink-muted);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+.panel__log {
+  padding-left: 1.25rem;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+/*
  * R-30 wants a tested peer path for reduced motion rather than a disabling switch, and
  * Phase 4 builds that. This blanket stop is the safety net underneath it: it has to beat
  * every later animation declaration whatever its specificity, which is the one case
