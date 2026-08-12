@@ -659,3 +659,78 @@ this is decided, and it consults both the connection and the channel. Anything t
 recomputes status from `connectionState` elsewhere reintroduces the gap. Note also that
 `closed` is checked before the switch: an explicit `close()` reports `closed` immediately
 rather than waiting for the connection to catch up.
+
+---
+
+## D-24 — The block envelope carries an encoding marker and a session id, and nothing yet about the player
+
+**Date:** 2026-08-12 · **Session owner's call**
+
+**Context.** §4.5 describes the offer block as "the offer, the creator's name and colour, a
+session id, and the protocol version … packed into one JSON object, compressed, and rendered
+as a base64url block", with a fallback to uncompressed where `CompressionStream` is
+unavailable. Task 1.3 had to turn that sentence into a format. Two things it does not settle
+came up immediately, and one thing it specifies could not be built.
+
+**Decision.** The envelope is `{ v, kind, session, sdp }`, and:
+
+1. **A single leading character outside the base64url payload states the encoding** — `C`
+   for deflate-raw, `U` for uncompressed.
+2. **`kind` distinguishes an offer block from an answer block**, and `session` is echoed by
+   the joiner and checked by the creator.
+3. **The creator's display name and colour are not in it yet.** They join the envelope in
+   Phase 4/5, when a player can actually choose them.
+
+**Why.** The marker is forced by the format: deflate-raw carries no header and no checksum
+(RFC 1951), which is exactly why it is the shortest option and exactly why a compressed
+payload cannot be told from an uncompressed one by inspection. §4.5 specifies the fallback
+without specifying how a reader distinguishes the two, and it cannot be inferred, so it has
+to be stated. Putting the marker outside the base64url means reading it costs no decoding.
+
+`kind` and `session` exist for the person, not the protocol. The two failure modes of a
+two-block ritual are pasting the wrong *kind* of block and pasting a block from a different
+conversation, and both otherwise surface as a connection that never opens — the least
+diagnosable outcome available. With these two fields each becomes a sentence naming the
+mistake (R-7).
+
+Name and colour are omitted because nothing can populate them: `VIEWING_SIDE` is hardcoded,
+colour selection is task 4.5, and there is no name input anywhere. Shipping the fields now
+would mean encoding a guess about a screen nobody has designed, and the envelope is
+versioned precisely so that adding them later is an ordinary change rather than a migration.
+This is a deliberate deviation from §4.5's list, recorded rather than silently absorbed.
+
+**Consequences.** The block format is `src/net/signal-block.ts`'s business alone, and the
+transport never sees one (D-22). A future `ServerSignaler` inherits none of this. When Phase
+4/5 adds name and colour, `PROTOCOL_VERSION` decides whether old blocks are still readable —
+today's decoder rejects any `v` it does not recognise, which is the behaviour that makes that
+choice available rather than forced.
+
+---
+
+## N-5 — Secure-context APIs are not available to the deliverable R-1 actually describes
+
+**Date:** 2026-08-12
+
+**Note.** Two obvious choices for this task are restricted to secure contexts:
+`crypto.randomUUID` for the session id, and `navigator.clipboard.writeText` for the copy
+control (R-5). R-1's primary deliverable is a single file opened by double-click from a
+desktop, which is a `file://` origin — and whether `file://` counts as a secure context is a
+per-browser judgement, not a specification guarantee.
+
+Neither is used as though it will be there:
+
+- The session id is drawn from `crypto.getRandomValues`, which carries no such restriction.
+- The copy control tries `navigator.clipboard.writeText` and, on any rejection, selects the
+  text and tells the reader to press Ctrl+C or ⌘C. Both paths were exercised — the fallback
+  fires whenever the write is refused, including when there is no user activation behind it.
+
+**Why it is written down.** Both would have worked perfectly in every test performed against
+the dev server over `http://localhost`, which *is* a secure context, and failed only in the
+distribution form the project cares about most. That is the shape of bug that reaches an
+acceptance pass intact. Anything else reaching for a browser API in this codebase should
+check its secure-context requirement against `file://` before relying on it.
+
+**Consequences.** `dist-single/checkers.html` remains self-contained and within budget (25.6
+kB against 1000 kB). The `file://` distribution form has still not been opened by hand this
+session — the reasoning above is what makes that safe to defer to the phase live test rather
+than a claim that it was checked.

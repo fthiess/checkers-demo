@@ -15,7 +15,7 @@ Update this index in the same pull request as any append to the log.
 
 | Subsystem | Governing decisions |
 | --- | --- |
-| **Connectivity and transport** | [D-1](DECISIONS.md#d-1--peer-to-peer-connectivity-via-webrtc-with-manual-signaling) → [D-5](DECISIONS.md#d-5--transport-abstraction-move-intents-and-client-side-validation) → [D-11](DECISIONS.md#d-11--spectators-deferred-to-the-server-transport) → [D-21](DECISIONS.md#d-21--protocol-holds-the-transport-contract-that-game-and-net-share) → [D-22](DECISIONS.md#d-22--the-transport-speaks-sdp-the-signaler-owns-the-block-encoding) → [D-23](DECISIONS.md#d-23--one-public-stun-server-configurable-still-no-turn) *(current)*, with [N-4](DECISIONS.md#n-4--transportstatus-is-not-connectionstate-renamed) *(landmine)* |
+| **Connectivity and transport** | [D-1](DECISIONS.md#d-1--peer-to-peer-connectivity-via-webrtc-with-manual-signaling) → [D-5](DECISIONS.md#d-5--transport-abstraction-move-intents-and-client-side-validation) → [D-11](DECISIONS.md#d-11--spectators-deferred-to-the-server-transport) → [D-21](DECISIONS.md#d-21--protocol-holds-the-transport-contract-that-game-and-net-share) → [D-22](DECISIONS.md#d-22--the-transport-speaks-sdp-the-signaler-owns-the-block-encoding) → [D-23](DECISIONS.md#d-23--one-public-stun-server-configurable-still-no-turn) → [D-24](DECISIONS.md#d-24--the-block-envelope-carries-an-encoding-marker-and-a-session-id-and-nothing-yet-about-the-player) *(current)*, with [N-4](DECISIONS.md#n-4--transportstatus-is-not-connectionstate-renamed) and [N-5](DECISIONS.md#n-5--secure-context-apis-are-not-available-to-the-deliverable-r-1-actually-describes) *(landmines)* |
 | **Module boundaries** | [D-21](DECISIONS.md#d-21--protocol-holds-the-transport-contract-that-game-and-net-share) |
 | **Rules of play** | [D-2](DECISIONS.md#d-2--american-draughts-with-three-house-modifications) → [D-3](DECISIONS.md#d-3--a-capture-chain-may-be-abandoned-at-any-point) → [D-4](DECISIONS.md#d-4--draws-by-agreement-only-with-a-non-binding-advisory) *(current)* |
 | **Rules engine internals** | [D-8](DECISIONS.md#d-8--the-move-generator-emits-capture-chain-prefixes-as-first-class-moves) |
@@ -47,6 +47,10 @@ Decisions whose consequences bite silently, worth knowing before you touch the r
   looks like `RTCPeerConnection.connectionState` renamed, and is not. A peer connection reports
   `connected` before its data channel opens; recomputing status from `connectionState` alone
   gives you an interface saying "connected" beside a `send` that throws.
+- **[N-5](DECISIONS.md#n-5--secure-context-apis-are-not-available-to-the-deliverable-r-1-actually-describes)** —
+  `crypto.randomUUID` and `navigator.clipboard` are secure-context APIs, and R-1's deliverable
+  is a `file://` document. Both work against `http://localhost` and may not work in the form
+  the project cares about most, so check the requirement before reaching for a browser API.
 
 ## Open questions
 

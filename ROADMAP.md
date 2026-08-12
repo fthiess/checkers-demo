@@ -153,10 +153,38 @@ there is nothing else in the way.
   override reaches it, is issue #31. The three decisions above are recorded as D-22 (SDP at
   the transport, block encoding at the signaler, and the injected factory), D-23 (the STUN
   server), and N-4 (the status mapping's one exception).
-- ☐ **1.3 Manual signaling.** Offer and answer blocks, compressed and base64url-encoded,
+- ☑ **1.3 Manual signaling.** Offer and answer blocks, compressed and base64url-encoded,
   with copy controls and whitespace-tolerant paste (R-5, R-6).
   *Accepts:* a block survives a round trip through an email client without corruption;
   block length is recorded.
+  *Built 2026-08-12.* `src/net/signal-block.ts` encodes the envelope `{v, kind, session,
+  sdp}` as JSON → `deflate-raw` → base64url behind a one-character encoding marker, and
+  decodes it back through a typed failure rather than a throw, the way `codec.ts` treats
+  anything arriving from a peer. `src/net/manual-signaler.ts` implements `protocol/`'s
+  `Signaler` over it, wrapping the transport's SDP-level methods exactly as D-22 planned —
+  the transport still never sees a block. `src/connection-panel.ts` is rewritten from task
+  1.2's raw-SDP harness into the real screen: "invitation" and "reply" rather than offer and
+  answer, no protocol vocabulary anywhere in it (R-7), the R-56 disclosure stated before
+  anything connects, and `TransportStatus` mapped to sentences including R-9's "these two
+  networks cannot reach each other" (D-24, N-5 record the format and the secure-context
+  traps). **Block length: 816 and 817 characters** for an invitation across two runs, 689–695
+  for a reply — compressed, against §4.5's estimate of roughly a thousand and task 1.2's
+  ~1050 uncompressed. Measured between two tabs on one machine, where ICE gathers far fewer
+  candidates than it will across two real networks, so treat it as a floor rather than the
+  number; the panel reports the length of every block it produces, so the phase live test
+  will yield the honest figure without anyone instrumenting anything. Verified in two tabs by
+  carrying both blocks through a simulated email client (hard-wrapped at 72 columns with
+  CRLF, plus stray leading and trailing whitespace): both decoded, both sides reached
+  `connected`. The four ways to paste the wrong thing — not a block, nothing at all, a reply
+  where an invitation belongs, a half-copied block — each produce a plain sentence naming the
+  mistake. A code review at high effort found that both step buttons stayed live after their
+  step was done: pressing Connect a second time renegotiated a `stable` connection and put
+  `Failed to set remote answer sdp` on screen, and pressing Continue a second time silently
+  replaced the reply block the joiner may already have sent. Each step's control is now
+  removed once its step completes, and a failed start returns to the opening choice with a
+  fresh signaler rather than a dead screen. Left out deliberately: R-8's shareable link,
+  which is specified but belonged to no task at all (issue #34), and connection-status
+  announcements, which are task 1.5's (R-48).
 - ☐ **1.4 Skeleton screen.** A static board with one draggable token whose position is
   echoed to the other side. No legality checking.
   *Accepts:* two people in two locations move the token and both see it; connection failure
