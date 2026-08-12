@@ -1,10 +1,14 @@
 /**
  * Pointer input's shared selection model (R-13, DESIGN.md §6.3).
  *
- * Both drag-and-drop and click-then-click resolve through these two functions --
- * selectSquare for the "pick a piece" gesture, attemptMove for the "commit to a
- * destination" gesture -- so the two input styles cannot disagree: there is only one
- * implementation of "what move does this resolve to," not two that happen to agree.
+ * Every input style resolves through these functions -- selectSquare for the "pick a piece"
+ * gesture, findMove for the "commit to a destination" gesture -- so drag-and-drop, clicking,
+ * and the keyboard cannot disagree: there is only one implementation of "what move does this
+ * resolve to," not three that happen to agree.
+ *
+ * Applying the move it finds is deliberately not here. The position belongs to `game/`'s
+ * session, which is what lets a move made on the other side of the connection land on this
+ * board by the same route a local one does (task 1.4).
  */
 
 import {
@@ -17,7 +21,7 @@ import {
   WHITE_KING,
   WHITE_MAN,
 } from "../engine/board.ts";
-import { applyMove, generateMoves, type Move } from "../engine/moves.ts";
+import { generateMoves, type Move } from "../engine/moves.ts";
 
 export interface InputState {
   readonly position: Position;
@@ -76,22 +80,12 @@ export function legalDestinations(state: InputState): readonly DestinationHighli
 // matched by origin and final destination against every legal move, prefixes included
 // (D-3, D-8), not just the longest chain from a given origin.
 //
-// Exposed separately from attemptMove because announcing a move (R-48) needs the move
-// itself, not just the position it produces. Re-deriving it in the caller would be a second
-// implementation of "what move does this resolve to", which is exactly what this module
-// exists to prevent.
+// Returns the move rather than the position it would produce, because announcing a move
+// (R-48) needs the move itself, and because the session is what applies it.
 export function findMove(state: InputState, destination: SquareIndex): Move | undefined {
   if (state.selected === null) return undefined;
 
   return generateMoves(state.position).find(
     (move) => move.from === state.selected && finalSquareOf(move) === destination,
   );
-}
-
-export function attemptMove(state: InputState, destination: SquareIndex): InputState {
-  const match = findMove(state, destination);
-
-  if (!match) return state;
-
-  return { position: applyMove(state.position, match), selected: null };
 }
