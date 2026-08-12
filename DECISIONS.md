@@ -734,3 +734,103 @@ check its secure-context requirement against `file://` before relying on it.
 kB against 1000 kB). The `file://` distribution form has still not been opened by hand this
 session — the reasoning above is what makes that safe to defer to the phase live test rather
 than a claim that it was checked.
+
+---
+
+## D-25 — The session owns the position, and both players' moves reach it the same way
+
+**Date:** 2026-08-12 · **Session owner's call**
+
+**Context.** Task 1.4 asked for "a static board with one draggable token whose position is
+echoed to the other side." It was written before Phase 3 existed. By the time it came up,
+3.1–3.5 had already built the full board — drag, click, keyboard, legal-move highlighting,
+announcements — against the real engine, so the literal deliverable was *behind* what was
+already there and building it would have meant building a throwaway. What was genuinely
+missing was the thread the task exists for: nothing sent a move anywhere.
+
+The position also had no owner. `main.ts` held it in an `InputState` alongside the
+selection, which is fine for one player and impossible for two.
+
+**Decision.** A new `game/` module holds `createSession`, which owns the position and is the
+only thing that moves it. A move made locally is applied and sent; a move arriving from the
+opponent is applied and published to subscribers. `main.ts` keeps only the selection and the
+focus ring, and reads the position back from the session.
+
+Three consequences settled with it:
+
+1. **Inbound moves are recovered, not reconstructed.** A received payload is matched against
+   `generateMoves` for the current position, and the engine's own `Move` is what gets
+   applied.
+2. **A local move whose `send` throws stays applied locally.** The channel closing between
+   picking a piece up and putting it down does not roll the move back.
+3. **`attemptMove` is removed from `ui/input.ts`.** `findMove` plus the session covers it.
+
+**Why.** Two clients showing one board need one thing that owns that board, and `game/` is
+the module the dependency table already reserved for it — this is what D-21 built `protocol/`
+for, so that `game/` could name a `Transport` without importing `net/`. The composition root
+now wires the panel to the session in one line, and that line is the whole of what §9's
+migration would touch. Leaving the position in `main.ts` would have put transport-aware game
+state in the one place DESIGN §9 warns about.
+
+Recovery by matching is not a validation decision — it is how `promotes` comes back at all.
+The wire carries `from`, `path`, and `captured` (§4.2) but not `promotes`, because whether a
+move crowns is the engine's conclusion rather than the mover's claim. Deriving it out here
+would duplicate the crowning rule somewhere it could drift from the engine's copy. That
+matching *also* means a move matching nothing is ignored is a side effect, and **ignoring is
+not rejecting** — see below.
+
+Keeping a move that failed to send is the lesser of two wrongs. The move was legal and the
+player made it; discarding it would rewrite the board under someone who watched their own
+piece land, to fix a problem the status line is already reporting (R-9). Letting the
+exception escape instead would break the input handler mid-gesture.
+
+`attemptMove` had no caller once the session applied moves, and it re-ran `findMove`
+internally while `main.ts` had already called it — a redundancy that predated this change.
+Its tests moved to `findMove`, which is where the behaviour they actually pinned down (a drop
+resolving to a chain *prefix*, R-41) lives.
+
+**Consequences.** The board is in sync because the session keeps it so, verified across five
+alternating moves with both sides' announcements matching. **Task 3.6 is now validation
+only** — R-57's rejection of an illegal inbound move with a report to the player, and R-35's
+halt on a state-hash divergence. Neither exists yet: an unrecognised move is silently
+ignored, and the hash is sent with every move but read by nobody. `game/`'s lint override was
+already present from D-21 and was confirmed to reject an import from `net/` before this
+module was written, rather than assumed to.
+
+---
+
+## N-6 — `render()` gained a second caller, and it was not written for one
+
+**Date:** 2026-08-12
+
+**Note.** Until task 1.4, `main.ts`'s `render()` only ever ran because of something the local
+player had just done. Two things it does were correct on exactly that assumption, and both
+became bugs the moment an opponent's move could call it:
+
+1. **It restored focus unconditionally.** Correct when the player had just pressed a key on
+   the board; wrong when the trigger came down the wire, where it drags focus out of whatever
+   the player was actually using. Observed: focus sitting on the connection panel's Copy
+   button jumped to a board square the instant the opponent moved. `render()` now reads
+   whether focus was inside the board *before* replacing the subtree, and restores it only
+   then.
+2. **It rebuilt the board mid-gesture.** Rebuilding detaches the element the pointer is
+   captured to, which silently kills a drag in progress — and because `dragOrigin` survived,
+   the player's eventual pointerup still committed a move, against a board that had changed
+   underneath them. The inbound handler now abandons the gesture first, which makes that
+   pointerup a no-op.
+
+**Why it is written down.** This is the fourth time this project has been bitten by
+`render()` rebuilding everything — after the drag in 3.2, keyboard focus in 3.4, and the live
+region in 3.5 — and the first time the trigger was not a local interaction. That is the part
+worth carrying forward: the earlier three were all found by using the interface, and this one
+could not be, because it needs a second person moving at the wrong moment. Anything added to
+that handler from here should assume it can fire at *any* time, including halfway through
+someone's gesture.
+
+**Consequences.** `abandonDrag()` exists for exactly this and is deliberately render-free, so
+callers decide when the rebuild happens. The focus restore is now conditional, which does not
+weaken R-46: focus was already on the board in every case the guarantee is about, and the
+condition only suppresses the case where moving it was never wanted. Verified after the fix:
+focus stayed on the Copy button through an opponent's move, an abandoned drag's pointerup
+committed nothing, and keyboard navigation and its focus restoration still work across
+renders.

@@ -15,8 +15,7 @@
 
 import { createManualSignaler, type ManualSignaler, SignalError } from "./net/manual-signaler.ts";
 import { createWebRtcTransport } from "./net/webrtc-transport.ts";
-import type { InboundMessage } from "./protocol/messages.ts";
-import type { TransportStatus } from "./protocol/transport.ts";
+import type { Transport, TransportStatus } from "./protocol/transport.ts";
 
 type Mode = "choosing" | "starting" | "joining";
 
@@ -89,7 +88,19 @@ async function copyToClipboard(textarea: HTMLTextAreaElement, feedback: HTMLElem
   }
 }
 
-export function mountConnectionPanel(root: HTMLElement): void {
+export interface ConnectionPanelOptions {
+  /**
+   * Called once, with the transport, as soon as one is built — which is on the player's first
+   * click, not at page load. The panel owns the connection ritual and nothing else; what the
+   * connection is *for* belongs to whoever mounts it (§9, issue #31).
+   */
+  readonly onTransport?: (transport: Transport) => void;
+}
+
+export function mountConnectionPanel(
+  root: HTMLElement,
+  options: ConnectionPanelOptions = {},
+): void {
   let mode: Mode = "choosing";
   let invitation: string | null = null;
   let reply: string | null = null;
@@ -150,15 +161,14 @@ export function mountConnectionPanel(root: HTMLElement): void {
     transport.onStatus((next: TransportStatus) => {
       status.textContent = STATUS_TEXT[next];
     });
-    transport.onMessage((message: InboundMessage) => {
-      // Nothing reads game messages yet — task 1.4 puts a token on the board and 3.6 wires
-      // real moves. Until then, arriving traffic is proof of life and nothing more.
-      status.textContent = `${STATUS_TEXT.connected} (last message #${message.seq})`;
-    });
+    // Game messages are not this panel's business — the session subscribes to the same
+    // transport and moves the board (task 1.4). The panel reports the *connection*, and
+    // overwriting the status on every arriving move would only fight with it.
     transport.onProtocolError((failure) => {
       showError(`Something arrived that this game could not read (${failure.code}).`);
     });
 
+    options.onTransport?.(transport);
     signaler = createManualSignaler(transport);
     return signaler;
   }

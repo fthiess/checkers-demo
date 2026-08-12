@@ -4,12 +4,12 @@ import { mountConnectionPanel } from "./connection-panel.ts";
 import {
   BLACK_KING,
   BLACK_MAN,
-  createOpeningPosition,
   EMPTY,
   type Side,
   type SquareIndex,
   WHITE_KING,
 } from "./engine/board.ts";
+import { createSession } from "./game/session.ts";
 import { describeLaunchContext, launchContextFor } from "./launch-context.ts";
 import { moveAnnouncement } from "./ui/announce.ts";
 import {
@@ -19,7 +19,6 @@ import {
   squareLabel,
 } from "./ui/board.ts";
 import {
-  attemptMove,
   clearSelection,
   findMove,
   type InputState,
@@ -49,7 +48,12 @@ function announce(text: string): void {
 // Fixed until Phase 5 adds real player/side selection.
 const VIEWING_SIDE: Side = "black";
 
-let state: InputState = { position: createOpeningPosition(), selected: null };
+// The session owns the position; this holds only what the interface adds on top of it — the
+// selection. Both players' boards move because the session moves them, whichever side the
+// move came from.
+const session = createSession();
+
+let state: InputState = { position: session.position(), selected: null };
 
 // Roving tabindex (R-46): exactly one square is ever tabbable at a time; arrow keys move
 // which one. Separate from state.selected -- moving keyboard focus around the board never
@@ -65,18 +69,46 @@ let dragOrigin: SquareIndex | null = null;
 let dragEl: HTMLElement | null = null;
 let boardElRef: HTMLElement | null = null;
 
+// Drops an in-progress drag without rendering. The pointerup and pointercancel handlers both
+// bail when dragOrigin is null, so clearing it is what makes a gesture abandoned here a no-op
+// when the player finally lifts their finger, rather than a move.
+function abandonDrag(): void {
+  if (dragEl) {
+    dragEl.style.zIndex = "";
+  }
+  dragOrigin = null;
+  dragEl = null;
+}
+
 // Every input style commits its move through here, so the announcement can no more disagree
-// between them than the move itself can -- the same reason attemptMove is shared (R-13).
+// between them than the move itself can -- the same reason findMove is shared (R-13).
 // Returns whether a legal move was found and applied.
 function commitMove(destination: SquareIndex): boolean {
   const move = findMove(state, destination);
   if (!move) return false;
 
   const before = state.position;
-  state = attemptMove(state, destination);
+  session.play(move);
+  state = { position: session.position(), selected: null };
   announce(moveAnnouncement(before, move, state.position));
   return true;
 }
+
+// An opponent's move has to reach the board and the live region by the same route a local one
+// does, or the two drift: R-48 does not care which end of the connection a move came from.
+//
+// It abandons any gesture in flight first. Until this task, render() only ever ran because of
+// something the local player did, so it could assume no drag was open and that focus belonged
+// to the board. A move arriving from the network breaks both assumptions: rebuilding the
+// board detaches the element the pointer is captured to, which kills the drag silently, and
+// leaving dragOrigin set would let the eventual pointerup commit a move against a board that
+// changed underneath the player mid-gesture.
+session.onOpponentMove(({ move, before, after }) => {
+  abandonDrag();
+  state = { position: after, selected: null };
+  announce(moveAnnouncement(before, move, after));
+  render();
+});
 
 function activateSquare(square: SquareIndex): void {
   focusedSquare = square;
@@ -195,6 +227,10 @@ function handleBoardKeyDown(event: KeyboardEvent): void {
 
 function render(): void {
   if (!boardRoot) return;
+
+  // Whether focus was on the board has to be read *before* the subtree goes, because
+  // replaceChildren moves it to the body. See the restore at the end.
+  const hadFocus = boardRoot.contains(document.activeElement);
   boardRoot.replaceChildren();
 
   const layout = computeBoardLayout(state.position, VIEWING_SIDE);
@@ -283,12 +319,28 @@ function render(): void {
   // render() rebuilds every element on every interaction, which would otherwise silently
   // drop keyboard focus after every move (R-46 wants it visible at all times, not just
   // between moves).
-  squareElements.get(focusedSquare)?.focus();
+  //
+  // Only when focus was already on the board, though. render() now also runs for a move
+  // arriving from the opponent, and focusing a square then would drag the player out of
+  // whatever they were actually using — a control in the connection panel, or anywhere else
+  // on the page — every time the other side moved. Focus moving without the user asking is
+  // the failure R-46 is guarding against, not a version of the guarantee.
+  if (hadFocus) {
+    squareElements.get(focusedSquare)?.focus();
+  }
 }
 
 render();
 
 const connectionRoot = document.querySelector<HTMLDivElement>("#connection-root");
 if (connectionRoot) {
-  mountConnectionPanel(connectionRoot);
+  // The composition root's one job that matters: the panel builds a transport, the session
+  // is told about it, and neither has to know the other exists. This is the line that would
+  // change, and the only one, if §9's client/server transport ever replaced the peer-to-peer
+  // one — which is the migration contract D-1 was chosen on.
+  mountConnectionPanel(connectionRoot, {
+    onTransport: (transport) => {
+      session.attach(transport);
+    },
+  });
 }

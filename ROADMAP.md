@@ -185,10 +185,38 @@ there is nothing else in the way.
   fresh signaler rather than a dead screen. Left out deliberately: R-8's shareable link,
   which is specified but belonged to no task at all (issue #34), and connection-status
   announcements, which are task 1.5's (R-48).
-- ☐ **1.4 Skeleton screen.** A static board with one draggable token whose position is
+- ☑ **1.4 Skeleton screen.** A static board with one draggable token whose position is
   echoed to the other side. No legality checking.
   *Accepts:* two people in two locations move the token and both see it; connection failure
   is reported plainly within a bounded time (R-9).
+  *Built 2026-08-12.* **Scoped against what exists rather than what the task says.** This was
+  written before Phase 3, and 3.1–3.5 had already built the full board against the real
+  engine — so "a static board with one draggable token" would have been a throwaway *behind*
+  the interface already shipped. What was genuinely missing is the thread the task exists
+  for: nothing sent a move anywhere. Built as that instead (session owner's call, D-25).
+  `src/game/session.ts` owns the position and is the only thing that moves it; a local move
+  is applied and sent, an arriving one is applied and published. `main.ts` keeps only the
+  selection and the focus ring, and the composition root wires the panel's transport to the
+  session in one line — which is the whole of what §9's migration would touch. An inbound
+  move is recovered by matching against `generateMoves` rather than reconstructed, because
+  `promotes` is the engine's conclusion and never travels on the wire. `attemptMove` left
+  `ui/input.ts` with its last caller; its tests moved to `findMove`, which is where the
+  behaviour they pinned down (R-41's chain prefixes) actually lives. Verified live across two
+  tabs: moves echo **both** directions, the receiving side announces them through the same
+  live region a local move uses (R-48), and after five alternating moves the two boards were
+  byte-identical, and a keyboard-driven move echoed across just as a pointer one did. The
+  `game/` lint guard was proved with a deliberate violating import before the module was
+  written, not assumed. A code review at high effort found two defects that only exist once a
+  *second person* can trigger a render, neither reachable by using the interface alone (N-6):
+  an opponent's move stole keyboard focus from wherever the local player was, and it killed a
+  drag in progress while leaving the gesture armed, so the eventual pointerup committed a move
+  against a board that had changed underneath them. Both fixed and re-verified, along with a
+  third: the session's `attach` documented itself as replacing a previous transport without
+  unsubscribing it, which reconnection (task 5.4) would have hit. Left out deliberately: **all** of R-57's inbound
+  validation and R-35's divergence halt, which is now the entirety of task 3.6 — an
+  unrecognised move is silently ignored today, and the state hash goes out with every move
+  but is read by nobody. Side ownership and turn enforcement stay Phase 5's (`VIEWING_SIDE`
+  is still hardcoded, so either client can move either colour).
 - ☐ **1.5 Connection-failure and privacy copy.** Plain-language guidance at every step
   (R-7), the network-address disclosure notice (R-56), and a clear unreachable-network
   message.
@@ -375,6 +403,11 @@ most reliable way to end up not having it.
   validate inbound moves and compare state hashes (R-57, R-35).
   *Accepts:* an illegal inbound move is rejected; an injected divergence halts play with a
   clear message.
+  *Narrowed by task 1.4 (D-25).* The wiring half is done: `game/session.ts` already carries
+  moves both ways and the state hash already travels with each one. What remains is the
+  validation half, which is untouched — an unrecognised inbound move is **silently ignored**
+  rather than rejected, nothing reports it to the player, and no client compares the hash it
+  received against its own. Both acceptance criteria still fail.
 
 **Live test at end of phase 3** — a complete, rules-correct game played between two
 locations, unanimated.

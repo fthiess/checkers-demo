@@ -9,8 +9,8 @@ import {
 } from "../engine/board.ts";
 import { applyMove, generateMoves } from "../engine/moves.ts";
 import {
-  attemptMove,
   clearSelection,
+  findMove,
   type InputState,
   legalDestinations,
   selectSquare,
@@ -42,13 +42,13 @@ describe("selectSquare", () => {
   });
 });
 
-describe("attemptMove", () => {
-  it("does nothing when nothing is selected", () => {
+describe("findMove", () => {
+  it("finds nothing when nothing is selected", () => {
     const state: InputState = { position: createOpeningPosition(), selected: null };
-    expect(attemptMove(state, 12)).toEqual(state);
+    expect(findMove(state, 12)).toBeUndefined();
   });
 
-  it("applies a legal simple move and clears the selection", () => {
+  it("resolves a legal simple move to the engine's own move", () => {
     const opening = createOpeningPosition();
     const move = generateMoves(opening)[0];
     if (!move) throw new Error("expected an opening move");
@@ -56,38 +56,40 @@ describe("attemptMove", () => {
     if (destination === undefined) throw new Error("expected a destination");
 
     const state: InputState = { position: opening, selected: move.from };
-    const next = attemptMove(state, destination);
-
-    expect(next.selected).toBeNull();
-    expect(next.position).toEqual(applyMove(opening, move));
+    expect(findMove(state, destination)).toEqual(move);
   });
 
-  it("leaves the state entirely unchanged for an illegal destination", () => {
+  it("finds nothing for an illegal destination", () => {
     const state: InputState = { position: createOpeningPosition(), selected: 8 };
-    expect(attemptMove(state, 0)).toEqual(state);
+    expect(findMove(state, 0)).toBeUndefined();
   });
 
+  // The two that matter: a drop resolves to the chain *prefix* it landed on, not to the
+  // longest chain available from that origin (R-41, D-3, D-8).
   it("stops at an intermediate landing square of a multi-hop chain (R-41)", () => {
     const position = positionFrom({ 4: BLACK_MAN, 8: WHITE_MAN, 17: WHITE_MAN }, "black");
     const state: InputState = { position, selected: 4 };
 
-    const next = attemptMove(state, 13);
+    const move = findMove(state, 13);
+    if (!move) throw new Error("expected the one-jump prefix to resolve");
 
-    expect(next.selected).toBeNull();
-    expect(next.position.squares[13]).toBe(BLACK_MAN);
-    expect(next.position.squares[8]).toBe(0); // captured
-    expect(next.position.squares[17]).toBe(WHITE_MAN); // not captured -- chain stopped early
+    const next = applyMove(position, move);
+    expect(next.squares[13]).toBe(BLACK_MAN);
+    expect(next.squares[8]).toBe(0); // captured
+    expect(next.squares[17]).toBe(WHITE_MAN); // not captured -- chain stopped early
   });
 
   it("takes the full chain when the drop lands on its maximal destination", () => {
     const position = positionFrom({ 4: BLACK_MAN, 8: WHITE_MAN, 17: WHITE_MAN }, "black");
     const state: InputState = { position, selected: 4 };
 
-    const next = attemptMove(state, 22);
+    const move = findMove(state, 22);
+    if (!move) throw new Error("expected the two-jump chain to resolve");
 
-    expect(next.position.squares[22]).toBe(BLACK_MAN);
-    expect(next.position.squares[8]).toBe(0);
-    expect(next.position.squares[17]).toBe(0);
+    const next = applyMove(position, move);
+    expect(next.squares[22]).toBe(BLACK_MAN);
+    expect(next.squares[8]).toBe(0);
+    expect(next.squares[17]).toBe(0);
   });
 });
 
