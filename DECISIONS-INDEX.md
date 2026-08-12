@@ -15,7 +15,7 @@ Update this index in the same pull request as any append to the log.
 
 | Subsystem | Governing decisions |
 | --- | --- |
-| **Connectivity and transport** | [D-1](DECISIONS.md#d-1--peer-to-peer-connectivity-via-webrtc-with-manual-signaling) → [D-5](DECISIONS.md#d-5--transport-abstraction-move-intents-and-client-side-validation) → [D-11](DECISIONS.md#d-11--spectators-deferred-to-the-server-transport) → [D-21](DECISIONS.md#d-21--protocol-holds-the-transport-contract-that-game-and-net-share) *(current)* |
+| **Connectivity and transport** | [D-1](DECISIONS.md#d-1--peer-to-peer-connectivity-via-webrtc-with-manual-signaling) → [D-5](DECISIONS.md#d-5--transport-abstraction-move-intents-and-client-side-validation) → [D-11](DECISIONS.md#d-11--spectators-deferred-to-the-server-transport) → [D-21](DECISIONS.md#d-21--protocol-holds-the-transport-contract-that-game-and-net-share) → [D-22](DECISIONS.md#d-22--the-transport-speaks-sdp-the-signaler-owns-the-block-encoding) → [D-23](DECISIONS.md#d-23--one-public-stun-server-configurable-still-no-turn) *(current)*, with [N-4](DECISIONS.md#n-4--transportstatus-is-not-connectionstate-renamed) *(landmine)* |
 | **Module boundaries** | [D-21](DECISIONS.md#d-21--protocol-holds-the-transport-contract-that-game-and-net-share) |
 | **Rules of play** | [D-2](DECISIONS.md#d-2--american-draughts-with-three-house-modifications) → [D-3](DECISIONS.md#d-3--a-capture-chain-may-be-abandoned-at-any-point) → [D-4](DECISIONS.md#d-4--draws-by-agreement-only-with-a-non-binding-advisory) *(current)* |
 | **Rules engine internals** | [D-8](DECISIONS.md#d-8--the-move-generator-emits-capture-chain-prefixes-as-first-class-moves) |
@@ -43,6 +43,11 @@ Decisions whose consequences bite silently, worth knowing before you touch the r
   peer-to-peer transport was chosen on the explicit condition that moving to a client/server
   transport stays additive. Editing `engine/`, `game/`, or `ui/` to add a server is a design
   defect, not unavoidable work; [DESIGN.md §9](DESIGN.md) is the written contract.
+- **[N-4](DECISIONS.md#n-4--transportstatus-is-not-connectionstate-renamed)** — `TransportStatus`
+  looks like `RTCPeerConnection.connectionState` renamed, and is not. A peer connection reports
+  `connected` before its data channel opens; recomputing status from `connectionState` alone
+  gives you an interface saying "connected" beside a `send` that throws.
+
 ## Open questions
 
 - **[Issue #7](https://github.com/fthiess/checkers-demo/issues/7)** — the dependency rule has
