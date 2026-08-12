@@ -88,9 +88,9 @@ a:visited {
 }
 
 /*
- * Temporary connection panel (task 1.2), deleted along with the panel when task 1.3 supplies
- * the real signaling interface. Deliberately plain — it is a test harness with a face, not a
- * design. The 44px control floor is not optional even here (R-50).
+ * The connection screen (task 1.3). Still deliberately plain — Phase 4 owns how any of this
+ * looks, and this styling exists to keep it legible and operable until then. The 44px control
+ * floor is not optional even here (R-50).
  */
 .panel {
   margin-top: 2.5rem;
@@ -110,8 +110,31 @@ a:visited {
 .panel__controls {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
+}
+
+/*
+ * Both are live regions, empty until they have something to say, and they must take no
+ * vertical space while empty or the layout shifts each time a message appears and clears.
+ *
+ * Collapsed with margins rather than `display: none` deliberately: a live region that is
+ * hidden and then revealed in the same frame as its text is not reliably announced, which
+ * would quietly cost exactly the people the region exists for. An empty element with no
+ * margins occupies nothing anyway.
+ */
+.panel__error:empty,
+.panel__feedback:empty {
+  margin: 0;
+}
+
+.panel__error {
+  font-weight: 600;
+}
+
+.panel__feedback {
+  font-size: 0.9rem;
 }
 
 .panel__button {
