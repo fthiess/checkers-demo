@@ -14,8 +14,8 @@
  */
 
 import { createManualSignaler, type ManualSignaler, SignalError } from "./net/manual-signaler.ts";
-import { createWebRtcTransport } from "./net/webrtc-transport.ts";
-import type { Transport, TransportStatus } from "./protocol/transport.ts";
+import { createWebRtcTransport, type WebRtcTransport } from "./net/webrtc-transport.ts";
+import type { TransportStatus } from "./protocol/transport.ts";
 
 type Mode = "choosing" | "starting" | "joining";
 
@@ -93,8 +93,14 @@ export interface ConnectionPanelOptions {
    * Called once, with the transport, as soon as one is built — which is on the player's first
    * click, not at page load. The panel owns the connection ritual and nothing else; what the
    * connection is *for* belongs to whoever mounts it (§9, issue #31).
+   *
+   * Typed as the concrete `WebRtcTransport` rather than `protocol/`'s `Transport` because
+   * `onProtocolError` is not one of §4.1's four methods, and the composition root needs it to
+   * answer a peer whose messages will not decode (D-26). `game/` cannot: it may not see
+   * `net/` at all, which is the module rule working as intended rather than getting in the
+   * way — see D-26 for why that is a signpost rather than a problem.
    */
-  readonly onTransport?: (transport: Transport) => void;
+  readonly onTransport?: (transport: WebRtcTransport) => void;
 }
 
 export function mountConnectionPanel(

@@ -399,18 +399,35 @@ most reliable way to end up not having it.
   unstarted), so there are no status transitions to announce and any wording now would be a
   guess at states the transport hasn't defined. The region and the `announce()` entry point
   are in place for tasks 1.2 and 1.5 to call; R-48 is only fully met once they do.
-- ☐ **3.6 Move wiring.** Connect the interface to the engine and the transport; both clients
+- ☑ **3.6 Move wiring.** Connect the interface to the engine and the transport; both clients
   validate inbound moves and compare state hashes (R-57, R-35).
   *Accepts:* an illegal inbound move is rejected; an injected divergence halts play with a
   clear message.
-  *Narrowed by task 1.4 (D-25).* The wiring half is done: `game/session.ts` already carries
-  moves both ways and the state hash already travels with each one. What remains is the
-  validation half, which is untouched — an unrecognised inbound move is **silently ignored**
-  rather than rejected, nothing reports it to the player, and no client compares the hash it
-  received against its own. Both acceptance criteria still fail.
+  *Built 2026-08-12.* The wiring half arrived with task 1.4 (D-25); this is the validation
+  half. `game/session.ts` now checks every inbound move against its own engine and rejects
+  what it cannot make (R-57), compares the sender's hash against one it computes itself
+  **before committing anything** — so the board never shows a position the message on top of
+  it calls wrong — and **halts** on either failure rather than playing on from boards known to
+  disagree (R-35, D-26). An `error` goes back in both cases; an inbound `error` halts this
+  side too and is never answered, which is the loop guard. A halted game refuses selections,
+  drags and keyboard moves but still lets focus move, since reading a stopped board is
+  reasonable. The message lands in a declared `role="alert"` region in `index.html`, never
+  rebuilt, for the same reason the move live region is not. **Closes issue #30** (D-26): an
+  undecodable message draws one `error`/`malformedMessage` reply, at most once per connection
+  and never for `outOfOrder` — a cap rather than "never answer an error", because bytes that
+  failed to decode cannot be inspected to see whether they *were* one, which is the case that
+  would loop. Verified live in two tabs against a client patched to corrupt its own outgoing
+  messages: a wrong hash halted both sides with different, correct explanations and left the
+  receiver's board untouched; an unmakeable move did the same; and an ordinary game still
+  plays through with the hash agreeing every move. Left out deliberately: `sync`
+  reconciliation, so **the halt is terminal in v1** — resuming is task 5.4's.
 
 **Live test at end of phase 3** — a complete, rules-correct game played between two
-locations, unanimated.
+locations, unanimated. **Every task in this phase is now built and merged; this test is all
+that stands between it and ☑.** It overlaps almost entirely with phase 1's, which also needs
+two locations and the same connection ritual, so the two are worth running in one sitting.
+Note what it cannot cover yet: with `VIEWING_SIDE` hardcoded and no turn ownership until task
+5.1, both players still see the board from Black's side and either can move either colour.
 
 ## Phase 4 — Animation, colour, and theme
 
@@ -445,6 +462,12 @@ Everything around the game rather than in it.
 - ☐ **5.1 Session state machine.** Setup, connecting, playing, game over; players, turn,
   result ([DESIGN.md §5](DESIGN.md)).
   *Accepts:* every terminal reason is representable and rendered.
+  **Also fixes issue #38**, which is live in the meantime: with no turn ownership yet and
+  `VIEWING_SIDE` hardcoded, either client can move either colour, so two players moving at
+  the same moment halt the game irrecoverably (3.6's validation rejects each other's move
+  once their own has flipped `sideToMove`). Turn ownership is what makes that race
+  unconstructable by ordinary play; task 5.4's `sync` is what would make any residual
+  divergence recoverable rather than terminal.
 - ☐ **5.2 Resign and draw.** Resignation with confirmation; draw offer, accept, decline,
   re-offer; the forty-move advisory (R-19, R-20, R-21, D-4).
   *Accepts:* a declined offer may be made again; the advisory never ends a game.
@@ -530,3 +553,4 @@ Updated at the close of each session.
 | 2026-08-11 | Phase 3 | Tasks 3.1 through 3.5 built and merged (#24-#28): board rendering, pointer input, legal-move indication with capture-chain preview, keyboard operation (roving tabindex over `role="grid"`), and screen-reader announcements. Connection-status announcements deliberately deferred to Phase 1, since nothing emitted a `TransportStatus` yet; the `announce()` entry point was left in place for them. Only task 3.6 (move wiring) remains in the phase. |
 | 2026-08-11 | Phase 1 | Tasks 1.1 and 1.2 built and merged (#29, #32). 1.1 added the `protocol/` module and the codec, closing issue #6 as D-21 — the repository owner's call, since it changed both the message schema and the module dependency rule. 1.2 implemented `WebRtcTransport` with non-trickle ICE and an injected peer-connection factory, verified live across two browser tabs (full handshake, a message each way, and a close). D-22, D-23, and N-4 were owed by that PR and are recorded in the following docs-only session instead. Issues #30 and #31 opened and left for later. |
 | 2026-08-12 | Close-out | Documentation debt from task 1.2 paid: D-22 (transport speaks SDP, signaler owns the block encoding), D-23 (one configurable public STUN server, still no TURN), and N-4 (`TransportStatus` is not `connectionState` renamed) appended to the decision log, the index updated, and this session log brought current after several sessions without a row. No code changed. |
+| 2026-08-12 | Phase 1 + Phase 3 | Tasks 1.3, 1.4 and 3.6 built. 1.3 manual signaling (#35): `net/signal-block.ts` and `net/manual-signaler.ts` behind a rewritten connection screen, blocks measured at 816-817 characters compressed against §4.5's ~1000 estimate (D-24, N-5 for the secure-context trap on the `file://` deliverable). 1.4 skeleton screen (#37): built as the move-over-the-wire thread its acceptance criteria describe rather than the throwaway static board the task text predates, introducing `src/game/session.ts` as the only thing that moves the position (D-25, N-6 — `render()` gained a network caller and can now fire mid-gesture). 3.6 move wiring: the validation half, halting on an unmakeable inbound move or a hash disagreement (D-26, closes #30). `/code-review` at high effort found real defects in all three, including one reachable by ordinary play that is deferred to task 5.1 as issue #38. Gate 5 is outstanding for all three: verified across two browser tabs here, but not driven by the session owner and not yet opened from the `file://` build — all three fold into the end-of-phase live test, which is now the only thing standing between Phase 3 and ☑. |

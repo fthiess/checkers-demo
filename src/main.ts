@@ -11,6 +11,7 @@ import {
 } from "./engine/board.ts";
 import { createSession } from "./game/session.ts";
 import { describeLaunchContext, launchContextFor } from "./launch-context.ts";
+import type { WebRtcTransport } from "./net/webrtc-transport.ts";
 import { moveAnnouncement } from "./ui/announce.ts";
 import {
   computeBoardLayout,
@@ -32,6 +33,7 @@ if (status) {
 }
 
 const boardRoot = document.querySelector<HTMLDivElement>("#board-root");
+const gameStatus = document.querySelector<HTMLParagraphElement>("#game-status");
 
 // Queried once and never rebuilt: render() replaces the board's whole subtree on every
 // interaction, and a live region that is itself replaced between the text being set and the
@@ -89,10 +91,32 @@ function commitMove(destination: SquareIndex): boolean {
 
   const before = state.position;
   session.play(move);
-  state = { position: session.position(), selected: null };
-  announce(moveAnnouncement(before, move, state.position));
+  const after = session.position();
+
+  // The session refuses to move a halted game, so this announces what happened rather than
+  // what was asked for. Every path into here is already guarded against a halt, but each
+  // guard lives in a different function while this is the one place all input styles meet —
+  // and announcing a move the board never made is a lie told only to the people who cannot
+  // see the board (R-48).
+  if (after === before) return false;
+
+  state = { position: after, selected: null };
+  announce(moveAnnouncement(before, move, after));
   return true;
 }
+
+// R-35: when the two clients disagree about the board, play stops and says so. The message
+// goes to a declared alert region rather than one built here, and the board stops taking
+// input — a halted game that still lets you pick a piece up is telling the player two
+// different things at once.
+session.onHalt((halt) => {
+  abandonDrag();
+  state = clearSelection(state);
+  if (gameStatus) {
+    gameStatus.textContent = halt.detail;
+  }
+  render();
+});
 
 // An opponent's move has to reach the board and the live region by the same route a local one
 // does, or the two drift: R-48 does not care which end of the connection a move came from.
@@ -112,6 +136,12 @@ session.onOpponentMove(({ move, before, after }) => {
 
 function activateSquare(square: SquareIndex): void {
   focusedSquare = square;
+  // Focus still moves around a halted board — reading it is fine, and taking the keyboard
+  // away would be its own bug. Only selecting and moving stop.
+  if (session.haltReason()) {
+    render();
+    return;
+  }
   if (state.selected !== null && state.selected !== square && commitMove(square)) {
     render();
     return;
@@ -125,6 +155,8 @@ function handleSquareClick(square: SquareIndex): void {
 }
 
 function handlePiecePointerDown(event: PointerEvent, square: SquareIndex): void {
+  if (session.haltReason()) return;
+
   focusedSquare = square;
   state = selectSquare(state, square);
   dragOrigin = square;
@@ -332,6 +364,42 @@ function render(): void {
 
 render();
 
+/**
+ * Answers a peer whose messages will not decode (D-26, issue #30).
+ *
+ * **At most one reply per connection**, which is the loop guard. The obvious rule — never
+ * answer an `error` — cannot work here: bytes that failed to decode cannot be inspected to
+ * see whether they *were* an error, which is precisely the case that would loop. A hard cap
+ * of one bounds any exchange to two messages however badly the far end is behaving.
+ *
+ * `outOfOrder` is excluded because it is not a failure worth telling anyone about: the codec
+ * reports it for a duplicated or replayed message, which is harmless and already handled by
+ * being dropped.
+ *
+ * Nothing halts locally here. If the undecodable message was a move, this client is now a
+ * move behind, and the *next* move to arrive will fail its hash check and halt both sides
+ * through the machinery task 3.6 already built — the peer having halted on our error, and
+ * this side on the mismatch. Adding a second halt path would only be a way for the two to
+ * disagree about why they stopped.
+ */
+function answerUndecodableMessages(transport: WebRtcTransport): void {
+  let replied = false;
+
+  transport.onProtocolError((failure) => {
+    if (replied || failure.code === "outOfOrder") return;
+    replied = true;
+    try {
+      transport.send({
+        type: "error",
+        code: "malformedMessage",
+        detail: `this client could not read a message (${failure.code})`,
+      });
+    } catch {
+      // The channel is already gone, which the transport's own status is reporting.
+    }
+  });
+}
+
 const connectionRoot = document.querySelector<HTMLDivElement>("#connection-root");
 if (connectionRoot) {
   // The composition root's one job that matters: the panel builds a transport, the session
@@ -341,6 +409,7 @@ if (connectionRoot) {
   mountConnectionPanel(connectionRoot, {
     onTransport: (transport) => {
       session.attach(transport);
+      answerUndecodableMessages(transport);
     },
   });
 }
