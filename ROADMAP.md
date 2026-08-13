@@ -217,17 +217,52 @@ there is nothing else in the way.
   unrecognised move is silently ignored today, and the state hash goes out with every move
   but is read by nobody. Side ownership and turn enforcement stay Phase 5's (`VIEWING_SIDE`
   is still hardcoded, so either client can move either colour).
-- ☐ **1.5 Connection-failure and privacy copy.** Plain-language guidance at every step
+- ☑ **1.5 Connection-failure and privacy copy.** Plain-language guidance at every step
   (R-7), the network-address disclosure notice (R-56), and a clear unreachable-network
   message.
   *Accepts:* the flow is comprehensible to someone who has not read this document.
   Also finishes R-48: task 3.5 built the live region and left connection-status
   announcements out, because no transport existed yet to have states worth announcing.
+  *Built 2026-08-13.* **Scoped against what task 1.3 had already delivered**, which was more
+  of this task's text than the entry implies: the plain-language flow, the R-9 failure
+  sentence and a short R-56 notice all shipped with the connection screen. What was left was
+  R-48's connection half, the fuller disclosure, and a comprehensibility pass — so that is
+  what was built. `game/session.ts` now publishes a `game/`-owned `ConnectionState`, and
+  `ui/announce.ts` turns it into a sentence in the **one** live region that already announces
+  moves and halts; the panel's own `role="status"` is removed, leaving its status line visible
+  but silent, so nothing is announced twice (**D-27**). The status has to travel this way
+  rather than straight from the transport, since `ui/` may not import `protocol/`.
+  The disclosure grew from one sentence to three short paragraphs and now covers **R-58**'s
+  trust model as well — that requirement was specified in DESIGN §226 and owned by no task at
+  all, the same gap R-8 had, and it was adopted here rather than filed because it is one
+  sentence on the surface this task was already rewriting (session owner's call).
+  **The live test found a real defect**: closing one of two connected tabs told the other
+  *"these two networks cannot reach each other directly… try a different network"*, because
+  `RTCPeerConnection` reports `failed` both for a connection that never formed and for a
+  working one that dies. Only the session knows which happened, so `failed` now maps to two
+  states — `unreachable` and `lost` — with different sentences, and the panel latches the
+  same distinction for its visible text. A code review at high effort found three more: a
+  republished `connected` would have announced a reconnection that never happened (the guard
+  has to compare the transport's status, not the state derived from it — the first fix was
+  wrong and the regression test caught it); the spoken failure text stopped short of the
+  remedy the visible line gives, which is a smaller version of not announcing it; and a
+  transport abandoned by a failed start stayed subscribed, so its eventual timeout would
+  overwrite the status line of the attempt that replaced it. Left out deliberately: tuning the
+  transport's five-second gathering timeout, which needs the end-of-phase live test to tune
+  against.
 
 **Live test at end of phase 1** — the session owner and a second person, on two different
 networks, connect and move the token. Two tabs on one machine will not do: the whole risk this
 phase exists to surface is what happens between two real networks. This is the phase most
-likely to turn up something the design did not anticipate.
+likely to turn up something the design did not anticipate. **Every task in this phase is now
+built, so this test is all that stands between it and ☑** — and it overlaps almost entirely
+with phase 3's, which needs the same two locations and the same connection ritual, so the two
+are worth running in one sitting. It carries three specific questions the work so far could
+not answer on one machine: whether STUN alone gets a connection at all without a TURN relay
+(D-1, D-23); what a signal block actually measures across two real networks, where ICE gathers
+far more candidates than it did for the 815-character figure taken between two tabs; and
+whether five seconds is the right gathering timeout, which task 1.2 chose as a starting value
+and nothing since has been able to tune.
 
 ## Phase 2 — Rules engine
 
@@ -554,3 +589,4 @@ Updated at the close of each session.
 | 2026-08-11 | Phase 1 | Tasks 1.1 and 1.2 built and merged (#29, #32). 1.1 added the `protocol/` module and the codec, closing issue #6 as D-21 — the repository owner's call, since it changed both the message schema and the module dependency rule. 1.2 implemented `WebRtcTransport` with non-trickle ICE and an injected peer-connection factory, verified live across two browser tabs (full handshake, a message each way, and a close). D-22, D-23, and N-4 were owed by that PR and are recorded in the following docs-only session instead. Issues #30 and #31 opened and left for later. |
 | 2026-08-12 | Close-out | Documentation debt from task 1.2 paid: D-22 (transport speaks SDP, signaler owns the block encoding), D-23 (one configurable public STUN server, still no TURN), and N-4 (`TransportStatus` is not `connectionState` renamed) appended to the decision log, the index updated, and this session log brought current after several sessions without a row. No code changed. |
 | 2026-08-12 | Phase 1 + Phase 3 | Tasks 1.3, 1.4 and 3.6 built. 1.3 manual signaling (#35): `net/signal-block.ts` and `net/manual-signaler.ts` behind a rewritten connection screen, blocks measured at 816-817 characters compressed against §4.5's ~1000 estimate (D-24, N-5 for the secure-context trap on the `file://` deliverable). 1.4 skeleton screen (#37): built as the move-over-the-wire thread its acceptance criteria describe rather than the throwaway static board the task text predates, introducing `src/game/session.ts` as the only thing that moves the position (D-25, N-6 — `render()` gained a network caller and can now fire mid-gesture). 3.6 move wiring: the validation half, halting on an unmakeable inbound move or a hash disagreement (D-26, closes #30). `/code-review` at high effort found real defects in all three, including one reachable by ordinary play that is deferred to task 5.1 as issue #38. Gate 5 is outstanding for all three: verified across two browser tabs here, but not driven by the session owner and not yet opened from the `file://` build — all three fold into the end-of-phase live test, which is now the only thing standing between Phase 3 and ☑. |
+| 2026-08-13 | Phase 1 + Phase 3 | Task 3.6 merged (#39) after being left built-but-unopened by the previous session, closing issue #30 and completing **Phase 3's task list**; the simultaneous-move halt its code review found was filed as #38 and named in task 5.1. Task 1.5 built: connection-status announcements routed through the session into the application's single live region, the panel's duplicate `role="status"` removed, the privacy disclosure expanded and R-58's trust model adopted from no task at all (D-27). Live-testing it found that closing one of two connected tabs blamed the network — `RTCPeerConnection` reports `failed` identically for a connection that never formed and one that died — so `failed` now maps to two states with different copy. **Both phases are now built in full**, and their shared two-network live test is the only thing between either and ☑. |

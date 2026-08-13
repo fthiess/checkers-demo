@@ -12,7 +12,7 @@ import {
 import { createSession } from "./game/session.ts";
 import { describeLaunchContext, launchContextFor } from "./launch-context.ts";
 import type { WebRtcTransport } from "./net/webrtc-transport.ts";
-import { moveAnnouncement } from "./ui/announce.ts";
+import { describeConnection, moveAnnouncement } from "./ui/announce.ts";
 import {
   computeBoardLayout,
   orientSquare,
@@ -411,5 +411,16 @@ if (connectionRoot) {
       session.attach(transport);
       answerUndecodableMessages(transport);
     },
+  });
+
+  // R-48's connection half. The status reaches here through the session rather than from the
+  // transport directly, because `ui/` may not see `protocol/` and the words below are `ui/`'s
+  // to choose — and because the session is what knows a recovered connection from a first one.
+  //
+  // One live region, not two: the panel shows the same news visually, and if it also announced
+  // it every change would be spoken twice.
+  session.onConnection((state) => {
+    const sentence = describeConnection(state);
+    if (sentence) announce(sentence);
   });
 }

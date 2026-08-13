@@ -10,7 +10,14 @@ import {
   WHITE_MAN,
 } from "../engine/board.ts";
 import { applyMove, generateMoves, type Move } from "../engine/moves.ts";
-import { describeMove, describeResult, describeTurn, moveAnnouncement } from "./announce.ts";
+import type { ConnectionState } from "../game/session.ts";
+import {
+  describeConnection,
+  describeMove,
+  describeResult,
+  describeTurn,
+  moveAnnouncement,
+} from "./announce.ts";
 
 function positionFrom(pieces: Record<number, number>, sideToMove: Side, plyCount = 0): Position {
   const squares = new Int8Array(BOARD_SIZE);
@@ -118,5 +125,63 @@ describe("moveAnnouncement", () => {
     expect(moveAnnouncement(before, move, applyMove(before, move))).toBe(
       "Black king moves from square 14 to square 17. White to move.",
     );
+  });
+});
+
+describe("connection announcements", () => {
+  it("says nothing for the states that are not news", () => {
+    // `absent` is where the page starts, and announcing it reports an event that has not
+    // happened. `connecting` is reached while an invitation is still being prepared, so it
+    // would claim something is under way before there is anyone at the other end.
+    expect(describeConnection("absent")).toBeNull();
+    expect(describeConnection("connecting")).toBeNull();
+  });
+
+  it("distinguishes a first connection from a recovered one", () => {
+    expect(describeConnection("ready")).toBe("Connected. You are both in the same game.");
+    expect(describeConnection("resumed")).toBe("Connected again. Play can carry on.");
+  });
+
+  it("explains an unreachable network rather than naming a state (R-9)", () => {
+    const sentence = describeConnection("unreachable");
+    expect(sentence).toContain("cannot reach each other");
+    expect(sentence).toContain("different network");
+  });
+
+  it("does not blame the network for a connection that had been working", () => {
+    // The live-test finding: a connection that worked and then failed is almost always the
+    // other player leaving, and sending someone off to change networks over that is advice
+    // to fix something that is not broken.
+    const sentence = describeConnection("lost");
+    expect(sentence).not.toContain("different network");
+    expect(sentence).not.toContain("cannot reach each other");
+    expect(sentence).toContain("other player");
+  });
+
+  it("keeps every sentence free of protocol vocabulary (R-7)", () => {
+    // The words a player must never meet. This is the test that fails if someone later
+    // writes the state name into the sentence, which is the easy way to write these.
+    const jargon = /\b(ICE|SDP|peer|offer|answer|WebRTC|STUN|socket|datachannel)\b/i;
+    // Written as a Record rather than a list so the type checker, not a reader, is what
+    // notices a new ConnectionState: adding one to the union fails to compile here until it
+    // is added below, which keeps this test exhaustive without anyone remembering to make it so.
+    const every: Record<ConnectionState, null> = {
+      absent: null,
+      connecting: null,
+      ready: null,
+      resumed: null,
+      interrupted: null,
+      unreachable: null,
+      lost: null,
+      closed: null,
+    };
+
+    for (const state of Object.keys(every) as ConnectionState[]) {
+      const sentence = describeConnection(state);
+      if (sentence === null) continue;
+      expect(sentence, state).not.toMatch(jargon);
+      // Ends as a sentence, since a live region reads them one after another.
+      expect(sentence, state).toMatch(/\.$/);
+    }
   });
 });
