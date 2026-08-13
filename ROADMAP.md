@@ -249,7 +249,21 @@ there is nothing else in the way.
   transport abandoned by a failed start stayed subscribed, so its eventual timeout would
   overwrite the status line of the attempt that replaced it. Left out deliberately: tuning the
   transport's five-second gathering timeout, which needs the end-of-phase live test to tune
-  against.
+  against. **Amended by the live test the same day**: the copy shipped here was still letting
+  the step messages claim a connection, which is what sent two real players away certain they
+  were connected when nothing had connected — see D-28 and the phase live-test note above.
+
+**Live test at end of phase 1 — attempted 2026-08-13, and it did its job.** A laptop on home
+Wi-Fi and a phone on mobile data, with a second person driving the phone. **Both players came
+away believing they were connected. Neither was, and no move ever crossed.** Three defects
+together, all of them ours and none findable in two tabs on one machine: the step messages
+claimed a connection on the strength of the blocks being exchanged; nothing prominent
+contradicted them; and the attempt never failed either, sitting in `connecting` indefinitely
+without `RTCPeerConnection` ever reporting `failed`, so R-9 was not met in practice. Fixed as
+**D-28** — a connection banner that only the transport may speak for, an honest `waiting`
+state, a thirty-second bound on the attempt, and a teardown so that giving up is real rather
+than a label. **The test still has to be re-run**: the interface was lying loudly enough to
+mask whatever the networks were doing, so the STUN-only question below is still open.
 
 **Live test at end of phase 1** — the session owner and a second person, on two different
 networks, connect and move the token. Two tabs on one machine will not do: the whole risk this
@@ -590,3 +604,4 @@ Updated at the close of each session.
 | 2026-08-12 | Close-out | Documentation debt from task 1.2 paid: D-22 (transport speaks SDP, signaler owns the block encoding), D-23 (one configurable public STUN server, still no TURN), and N-4 (`TransportStatus` is not `connectionState` renamed) appended to the decision log, the index updated, and this session log brought current after several sessions without a row. No code changed. |
 | 2026-08-12 | Phase 1 + Phase 3 | Tasks 1.3, 1.4 and 3.6 built. 1.3 manual signaling (#35): `net/signal-block.ts` and `net/manual-signaler.ts` behind a rewritten connection screen, blocks measured at 816-817 characters compressed against §4.5's ~1000 estimate (D-24, N-5 for the secure-context trap on the `file://` deliverable). 1.4 skeleton screen (#37): built as the move-over-the-wire thread its acceptance criteria describe rather than the throwaway static board the task text predates, introducing `src/game/session.ts` as the only thing that moves the position (D-25, N-6 — `render()` gained a network caller and can now fire mid-gesture). 3.6 move wiring: the validation half, halting on an unmakeable inbound move or a hash disagreement (D-26, closes #30). `/code-review` at high effort found real defects in all three, including one reachable by ordinary play that is deferred to task 5.1 as issue #38. Gate 5 is outstanding for all three: verified across two browser tabs here, but not driven by the session owner and not yet opened from the `file://` build — all three fold into the end-of-phase live test, which is now the only thing standing between Phase 3 and ☑. |
 | 2026-08-13 | Phase 1 + Phase 3 | Task 3.6 merged (#39) after being left built-but-unopened by the previous session, closing issue #30 and completing **Phase 3's task list**; the simultaneous-move halt its code review found was filed as #38 and named in task 5.1. Task 1.5 built: connection-status announcements routed through the session into the application's single live region, the panel's duplicate `role="status"` removed, the privacy disclosure expanded and R-58's trust model adopted from no task at all (D-27). Live-testing it found that closing one of two connected tabs blamed the network — `RTCPeerConnection` reports `failed` identically for a connection that never formed and one that died — so `failed` now maps to two states with different copy. **Both phases are now built in full**, and their shared two-network live test is the only thing between either and ☑. |
+| 2026-08-13 | Phase 1 live test | The two-network live test was attempted and **failed in a way three sessions of two-tab testing could not have found**: both players believed they were connected, neither was, and no move crossed. The step messages claimed a connection that only the blocks being exchanged justified, nothing prominent contradicted them, and the attempt never reported failure at all — `RTCPeerConnection` sat in `connecting` indefinitely, so R-9 was unmet in practice. Fixed as D-28: a connection banner that only the transport may speak for, an honest "waiting for the other player" state the ritual previously had no words for, a thirty-second bound on the connection attempt, and a teardown on giving up — the code review caught that the first version of the timeout only relabelled a connection that was still live enough to carry moves. Issues #41 (the board accepts moves with no connection, and they vanish) and #42 (a dropped connection is still unbounded) filed. **The live test itself is unfinished** — it has to be run again before either phase can be ticked, and the STUN-only question it exists to answer is still open. |

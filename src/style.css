@@ -103,6 +103,65 @@ a:visited {
 }
 
 /*
+ * The connection banner. The one place that answers "are we connected?", and the live test's
+ * finding is the reason it is the loudest thing in the panel: two players finished the ritual
+ * believing they were connected because nothing on screen was willing to say otherwise.
+ *
+ * State is carried by a left bar and the label's weight rather than by colour alone — the
+ * connected and failed states have to be distinguishable without colour vision (R-49, and the
+ * project's no-meaning-in-colour-alone rule).
+ */
+.banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--ink-muted);
+  border-left-width: 5px;
+  border-radius: 4px;
+}
+
+.banner__label {
+  font-size: 1.05rem;
+  letter-spacing: 0.01em;
+}
+
+.banner__detail {
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+}
+
+.banner[data-state="connected"] {
+  border-color: var(--connected, #1f7a4d);
+}
+
+.banner[data-state="connected"] .banner__label::after {
+  /* A tick as well as the word, so the state survives being glanced at. */
+  content: " ✓";
+}
+
+.banner[data-state="failed"],
+.banner[data-state="reconnecting"] {
+  border-color: var(--alert, #a2402a);
+}
+
+.banner[data-state="waiting"] .banner__label::after {
+  content: " …";
+}
+
+@media (prefers-color-scheme: dark) {
+  .banner[data-state="connected"] {
+    border-color: var(--connected-dark, #5fbf8a);
+  }
+
+  .banner[data-state="failed"],
+  .banner[data-state="reconnecting"] {
+    border-color: var(--alert-dark, #e0917a);
+  }
+}
+
+/*
  * The disclosure a player is asked to read before connecting (R-56, R-58). Grouped and set
  * apart so three short paragraphs read as one notice rather than as page furniture — this is
  * the only text in the application that has to survive being skimmed.
@@ -114,11 +173,6 @@ a:visited {
 
 .panel__privacy .panel__note:last-child {
   margin-bottom: 0;
-}
-
-.panel__status {
-  color: var(--ink);
-  font-weight: 600;
 }
 
 .panel__controls {
