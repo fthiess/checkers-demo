@@ -217,7 +217,7 @@ there is nothing else in the way.
   unrecognised move is silently ignored today, and the state hash goes out with every move
   but is read by nobody. Side ownership and turn enforcement stay Phase 5's (`VIEWING_SIDE`
   is still hardcoded, so either client can move either colour).
-- ☑ **1.5 Connection-failure and privacy copy.** Plain-language guidance at every step
+- ◐ **1.5 Connection-failure and privacy copy.** Plain-language guidance at every step
   (R-7), the network-address disclosure notice (R-56), and a clear unreachable-network
   message.
   *Accepts:* the flow is comprehensible to someone who has not read this document.
@@ -249,34 +249,44 @@ there is nothing else in the way.
   transport abandoned by a failed start stayed subscribed, so its eventual timeout would
   overwrite the status line of the attempt that replaced it. Left out deliberately: tuning the
   transport's five-second gathering timeout, which needs the end-of-phase live test to tune
-  against. **Amended by the live test the same day**: the copy shipped here was still letting
-  the step messages claim a connection, which is what sent two real players away certain they
-  were connected when nothing had connected — see D-28 and the phase live-test note above.
-
-**Live test at end of phase 1 — attempted 2026-08-13, and it did its job.** A laptop on home
-Wi-Fi and a phone on mobile data, with a second person driving the phone. **Both players came
-away believing they were connected. Neither was, and no move ever crossed.** Three defects
-together, all of them ours and none findable in two tabs on one machine: the step messages
-claimed a connection on the strength of the blocks being exchanged; nothing prominent
-contradicted them; and the attempt never failed either, sitting in `connecting` indefinitely
-without `RTCPeerConnection` ever reporting `failed`, so R-9 was not met in practice. Fixed as
-**D-28** — a connection banner that only the transport may speak for, an honest `waiting`
-state, a thirty-second bound on the attempt, and a teardown so that giving up is real rather
-than a label. **The test still has to be re-run**: the interface was lying loudly enough to
-mask whatever the networks were doing, so the STUN-only question below is still open.
+  against. **◐ rather than ☑, and amended by the live test the same day**: the copy shipped
+  here was still letting the step messages claim a connection, which is what sent two real
+  players away certain they were connected when nothing had connected. D-28 fixed that and is
+  merged, but a ☑ on this roadmap means live-tested, and the run that would earn it is the one
+  this task's own copy broke — see the phase live-test note above.
 
 **Live test at end of phase 1** — the session owner and a second person, on two different
-networks, connect and move the token. Two tabs on one machine will not do: the whole risk this
-phase exists to surface is what happens between two real networks. This is the phase most
-likely to turn up something the design did not anticipate. **Every task in this phase is now
-built, so this test is all that stands between it and ☑** — and it overlaps almost entirely
-with phase 3's, which needs the same two locations and the same connection ritual, so the two
-are worth running in one sitting. It carries three specific questions the work so far could
-not answer on one machine: whether STUN alone gets a connection at all without a TURN relay
-(D-1, D-23); what a signal block actually measures across two real networks, where ICE gathers
-far more candidates than it did for the 815-character figure taken between two tabs; and
-whether five seconds is the right gathering timeout, which task 1.2 chose as a starting value
-and nothing since has been able to tune.
+networks, connect and play. Two tabs on one machine will not do: the whole risk this phase
+exists to surface is what happens between two real networks. Every task in the phase is built,
+so this test is all that stands between it and ☑, and it overlaps almost entirely with phase
+3's — same two locations, same connection ritual — so the two are worth running in one sitting.
+
+Three questions it exists to answer, none of which one machine can:
+
+1. Does STUN alone get a connection at all, with no TURN relay (D-1, D-23)?
+2. How long is a signal block across two real networks, where ICE gathers far more candidates
+   than the 815 characters measured between two tabs — a floor, not a figure.
+3. Is the gathering timeout right? Task 1.2 chose five seconds as a starting value and nothing
+   since has been able to tune it. D-28's separate thirty-second bound on the *connection
+   attempt* needs the same scrutiny, for the opposite failure: giving up on something that was
+   still working.
+
+**Attempted 2026-08-13. It failed, and it did its job.** A laptop on home Wi-Fi and a phone on
+mobile data, with a second person driving the phone. **Both players came away believing they
+were connected. Neither was, and no move ever crossed.** Three defects together, all of them
+ours and none findable in two tabs, where the connection succeeds in under a second and no
+premature claim of success is ever on screen long enough to be believed: the step messages
+claimed a connection on the strength of the blocks being exchanged; nothing prominent
+contradicted them; and the attempt never failed either, sitting in `connecting` indefinitely
+without `RTCPeerConnection` ever reporting `failed`, so R-9 was not met in practice.
+
+Fixed as **D-28** — a connection banner that only the transport may speak for, an honest
+`waiting` state, a thirty-second bound on the attempt, and a teardown so that giving up is real
+rather than a label. Issues #41 and #42 carry what was deliberately left.
+
+⚠ **None of the three questions above has been answered yet, and the test has to be re-run.**
+The interface was lying loudly enough to mask whatever the networks were doing, so question 1
+is exactly as open as it was before the attempt.
 
 ## Phase 2 — Rules engine
 
