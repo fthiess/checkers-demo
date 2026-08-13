@@ -963,3 +963,62 @@ against `ready`, calls them different, and announces a reconnection that never h
 first attempt at this fix moved the latch and still failed, which the regression test caught;
 comparing the status is what actually works, and every distinct status maps to a distinct
 state anyway.
+
+---
+
+## D-28 — Only the transport may claim a connection, and it must give up on its own
+
+**Date:** 2026-08-13 · **Session owner's call**
+
+**Context.** The Phase 1 + 3 live test — a laptop on home Wi-Fi and a phone on mobile data,
+two genuinely separate networks, with a second person driving the phone — failed in a way that
+none of the two-tab testing could have found. Both players came away believing they were
+connected. Neither was. No move ever crossed.
+
+Three things had to be true at once for that to happen, and all three were ours:
+
+1. **The step messages claimed a connection they could not know about.** "Done — their reply
+   came through and you are connected" rendered on the strength of `acceptAnswer` resolving,
+   which means only that two blocks were exchanged and both descriptions applied. The joiner's
+   "Done — the invitation was accepted" read the same way to the person holding the phone.
+2. **Nothing on screen contradicted them.** The only honest signal was a small status line,
+   below three paragraphs of privacy copy, that a player had no reason to look at.
+3. **The connection never failed, either.** It sat in `connecting` indefinitely:
+   `RTCPeerConnection.connectionState` never reached `failed`, so R-9's promise — that a
+   connection which cannot be established says so within a bounded time — was not kept.
+
+**Decision.** Three parts.
+
+**Only the transport may claim a connection.** A prominent banner, first in the panel and
+identical on both devices, is the single answer to "are we connected?", and it reads from the
+transport alone. Step messages may say what *you* just did and nothing more. The banner also
+names the state the ritual actually leaves people in — `waiting`, meaning your half is done
+and theirs is not — which the interface previously had no words for, and which was being
+reported as a bare "Connecting…" that both players read as progress toward success.
+
+**The transport bounds the connection attempt itself**, not just ICE gathering, and reports
+`failed` after thirty seconds whatever the browser thinks. The clock starts when a remote
+description is applied — before that the wait is for a person to send a message, and timing
+that would fail people for taking a minute to paste something.
+
+**Giving up tears the connection down.** The first version of the timeout only changed the
+reported status, which the code review caught: a connection completing at thirty-one seconds
+would have opened its channel and started carrying real moves — `send` gates on the channel,
+not on the status — leaving a live game running underneath a banner saying it had failed.
+`send` now refuses once this transport has declared the attempt over, and the timeout closes
+the peer connection so the failure it reports is the failure that exists.
+
+**Why thirty seconds.** Generous on purpose. ICE on a slow mobile network can legitimately
+take many seconds, and the remedy a player is handed on failure is "go and find a different
+network" — sending someone off to do that when the connection was about to work is worse than
+making them wait. It is configurable, and the end-of-phase live test is what should tune it.
+
+**Consequences.** No text outside the banner may say "connected"; the joiner's step-2
+instruction is written to be replaced once the connection exists, because "you are not
+connected until they paste it in" contradicts a banner saying otherwise the moment they do.
+The banner deliberately carries **no** `role="status"` — D-27 put every announcement through
+the game's one live region, and a second announcing element here would say everything twice.
+
+What this decision does **not** settle is whether the connection failed because of the
+networks. The interface was lying loudly enough to mask whatever was happening underneath, so
+the STUN-only question (D-1, D-23) is still open and needs the live test run again.

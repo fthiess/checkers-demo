@@ -20,6 +20,7 @@ Update this index in the same pull request as any append to the log.
 | **Game session and shared state** | [D-25](DECISIONS.md#d-25--the-session-owns-the-position-and-both-players-moves-reach-it-the-same-way) → [D-26](DECISIONS.md#d-26--nothing-inbound-is-trusted-and-a-disagreement-stops-the-game) → [D-27](DECISIONS.md#d-27--one-live-region-for-the-whole-application-and-the-game-names-the-connection) *(current)*, with [N-6](DECISIONS.md#n-6--render-gained-a-second-caller-and-it-was-not-written-for-one) *(landmine)* |
 | **Validation and divergence** | [D-26](DECISIONS.md#d-26--nothing-inbound-is-trusted-and-a-disagreement-stops-the-game) |
 | **Announcements and live regions** | [D-27](DECISIONS.md#d-27--one-live-region-for-the-whole-application-and-the-game-names-the-connection) — one region announces moves, halts and connection changes; connection status reaches `ui/` as a `game/`-owned state, never as `protocol/`'s |
+| **Reporting the connection to players** | [D-28](DECISIONS.md#d-28--only-the-transport-may-claim-a-connection-and-it-must-give-up-on-its-own) — only the transport may claim a connection; the banner is the single answer, and the transport bounds and tears down its own failed attempts (R-9) |
 | **Rules of play** | [D-2](DECISIONS.md#d-2--american-draughts-with-three-house-modifications) → [D-3](DECISIONS.md#d-3--a-capture-chain-may-be-abandoned-at-any-point) → [D-4](DECISIONS.md#d-4--draws-by-agreement-only-with-a-non-binding-advisory) *(current)* |
 | **Rules engine internals** | [D-8](DECISIONS.md#d-8--the-move-generator-emits-capture-chain-prefixes-as-first-class-moves) |
 | **Sides, colour, and theme** | [D-7](DECISIONS.md#d-7--logical-sides-are-separate-from-display-colours) → [D-9](DECISIONS.md#d-9--contrast-validation-at-selection-plus-a-non-colour-side-marker) *(current)* |
@@ -62,6 +63,11 @@ Decisions whose consequences bite silently, worth knowing before you touch the r
   the halt is **terminal in v1**. There is no resume until `sync` reconciliation exists (task
   5.4), so its message is the last thing either player sees. Anything that can halt should be
   sure it means it.
+- **[D-28](DECISIONS.md#d-28--only-the-transport-may-claim-a-connection-and-it-must-give-up-on-its-own)** —
+  signaling completing is **not** a connection, and any message that treats it as one will be
+  believed. `RTCPeerConnection` may sit in `connecting` forever without ever reporting
+  `failed`, so a bound that waits for the browser is not a bound — and a timeout that only
+  changes a label leaves a live channel underneath it.
 - **[D-27](DECISIONS.md#d-27--one-live-region-for-the-whole-application-and-the-game-names-the-connection)** —
   `RTCPeerConnection` reports `failed` both for a connection that never formed and for a
   working one that died, so anything reading it alone will tell a player whose network is fine

@@ -27,6 +27,21 @@ const DEFAULT_ICE_SERVERS: readonly RTCIceServer[] = [{ urls: "stun:stun.l.googl
 // not a measured one.
 const DEFAULT_GATHERING_TIMEOUT_MS = 5000;
 
+/**
+ * How long the connection attempt itself may run before this transport calls it failed (R-9).
+ *
+ * Bounding *gathering* was never enough, and the phase live test proved it: a home network and
+ * a phone on mobile data exchanged their blocks successfully and then sat in `connecting`
+ * indefinitely, with `RTCPeerConnection.connectionState` never reaching `failed`. R-9 asks for
+ * a connection that cannot be established to say so "within a bounded time", and a bound that
+ * depends on the browser volunteering one is not a bound.
+ *
+ * Thirty seconds is deliberately generous. ICE on a slow mobile network can legitimately take
+ * many seconds, and a false failure on a connection that was about to work is worse than a
+ * slow true one — the player's remedy for a failure is to go and find a different network.
+ */
+const DEFAULT_CONNECTION_TIMEOUT_MS = 30_000;
+
 const DATA_CHANNEL_LABEL = "checkers";
 
 export interface ProtocolFailure {
@@ -37,6 +52,7 @@ export interface ProtocolFailure {
 export interface WebRtcTransportOptions {
   readonly iceServers?: readonly RTCIceServer[];
   readonly gatheringTimeoutMs?: number;
+  readonly connectionTimeoutMs?: number;
   // Injected so the transport can be unit-tested against a fake: `RTCPeerConnection` does
   // not exist outside a browser, and this project adds no dependency to simulate one.
   readonly createPeerConnection?: (configuration: RTCConfiguration) => RTCPeerConnection;
@@ -55,6 +71,7 @@ export interface WebRtcTransport extends Transport {
 
 export function createWebRtcTransport(options: WebRtcTransportOptions = {}): WebRtcTransport {
   const gatheringTimeoutMs = options.gatheringTimeoutMs ?? DEFAULT_GATHERING_TIMEOUT_MS;
+  const connectionTimeoutMs = options.connectionTimeoutMs ?? DEFAULT_CONNECTION_TIMEOUT_MS;
   const makePeerConnection =
     options.createPeerConnection ?? ((configuration) => new RTCPeerConnection(configuration));
 
@@ -70,6 +87,45 @@ export function createWebRtcTransport(options: WebRtcTransportOptions = {}): Web
   let channel: RTCDataChannel | null = null;
   let closed = false;
   let lastPublished: TransportStatus = "idle";
+  // Set when this transport gives up on its own rather than waiting for a `failed` that the
+  // browser may never report. Once true it outranks whatever `connectionState` says, because
+  // the player has already been told the attempt is over.
+  let timedOut = false;
+  let attemptTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function stopAttemptTimer(): void {
+    if (attemptTimer !== null) {
+      clearTimeout(attemptTimer);
+      attemptTimer = null;
+    }
+  }
+
+  /**
+   * Starts the R-9 clock on the connection attempt, once there is an attempt to time.
+   *
+   * Called when a remote description is applied, which is the first moment ICE has anything
+   * to work with — on the joiner that is `acceptOffer`, on the creator `acceptAnswer`. Idle
+   * time before that belongs to the players and their email client, not to the network, and
+   * timing it would fail people who took a minute to send a message.
+   */
+  function startAttemptTimer(): void {
+    if (closed || timedOut || attemptTimer !== null) return;
+    if (currentStatus() === "connected") return;
+
+    attemptTimer = setTimeout(() => {
+      attemptTimer = null;
+      if (closed || currentStatus() === "connected") return;
+      timedOut = true;
+      // Giving up has to be real, not a label. Left running, a peer connection that completes
+      // after the deadline opens its channel and starts carrying moves — `send` gates on the
+      // channel's readiness, not on this status — so the players would be told the connection
+      // failed while a live game ran underneath them. Tearing it down means the failure they
+      // were shown is the one that exists, and starting again is the only way on.
+      channel?.close();
+      connection.close();
+      publishStatus();
+    }, connectionTimeoutMs);
+  }
 
   // §4.1's six statuses map one-to-one onto RTCPeerConnection.connectionState's six values,
   // with a single deliberate exception: a peer connection can report `connected` while the
@@ -77,6 +133,10 @@ export function createWebRtcTransport(options: WebRtcTransportOptions = {}): Web
   // that does not exist yet. Such a moment is reported as `connecting`.
   function currentStatus(): TransportStatus {
     if (closed) return "closed";
+    // Ranked above the live state deliberately: the live test found a connection that stayed
+    // in `connecting` indefinitely, and R-9's promise is that the player is told, not that the
+    // browser eventually agrees.
+    if (timedOut) return "failed";
     switch (connection.connectionState) {
       case "new":
         return "idle";
@@ -97,6 +157,10 @@ export function createWebRtcTransport(options: WebRtcTransportOptions = {}): Web
 
   function publishStatus(): void {
     const next = currentStatus();
+    // A connection that arrived has nothing left to time out. Stopping here rather than in the
+    // event handlers covers every route to `connected`, including the data channel opening
+    // after the peer connection did.
+    if (next === "connected") stopAttemptTimer();
     if (next === lastPublished) return;
     lastPublished = next;
     for (const handler of statusHandlers) handler(next);
@@ -177,15 +241,27 @@ export function createWebRtcTransport(options: WebRtcTransportOptions = {}): Web
       const answer = await connection.createAnswer();
       await connection.setLocalDescription(answer);
       await waitForGathering();
+      // The joiner has everything it needs from the other side, so from here the clock is the
+      // network's (R-9).
+      startAttemptTimer();
+      publishStatus();
       return connection.localDescription ?? answer;
     },
 
     async acceptAnswer(answer: RTCSessionDescriptionInit): Promise<void> {
       await connection.setRemoteDescription(answer);
+      // Both descriptions are in place, so the creator's attempt is now genuinely under way and
+      // is the thing R-9 bounds. Before this point the wait was for a person, not a network.
+      startAttemptTimer();
+      publishStatus();
     },
 
     send(message: OutboundMessage): void {
-      if (channel?.readyState !== "open") {
+      // The transport's own verdict comes first. Reading only the channel would let a
+      // connection this transport has already declared dead — closed, or timed out under R-9 —
+      // carry messages again if its channel ever came back, which is precisely the gap that
+      // made the timeout a label rather than a decision.
+      if (closed || timedOut || channel?.readyState !== "open") {
         // Throwing rather than queueing or dropping: a move that vanished silently is far
         // harder to diagnose than one that failed where it was sent.
         throw new Error("transport is not open: there is no data channel to send on");
@@ -220,6 +296,7 @@ export function createWebRtcTransport(options: WebRtcTransportOptions = {}): Web
     close(): void {
       if (closed) return;
       closed = true;
+      stopAttemptTimer();
       channel?.close();
       connection.close();
       publishStatus();

@@ -113,9 +113,16 @@ function asPeerConnection(fake: FakePeerConnection): RTCPeerConnection {
   return fake as unknown as RTCPeerConnection;
 }
 
-function transportOver(fake: FakePeerConnection, gatheringTimeoutMs = 5000) {
+// The connection timeout defaults far beyond any test's lifetime, so only the tests that are
+// about it (R-9) ever see it fire.
+function transportOver(
+  fake: FakePeerConnection,
+  gatheringTimeoutMs = 5000,
+  connectionTimeoutMs = 60_000,
+) {
   return createWebRtcTransport({
     gatheringTimeoutMs,
+    connectionTimeoutMs,
     createPeerConnection: () => asPeerConnection(fake),
   });
 }
@@ -357,5 +364,119 @@ describe("closing", () => {
     transport.close();
     transport.close();
     expect(fake.closeCalls).toBe(1);
+  });
+});
+
+/*
+ * R-9, and the reason this was reopened: bounding ICE *gathering* was never the same as
+ * bounding the connection attempt. The phase live test connected a home network to a phone on
+ * mobile data, exchanged both blocks successfully, and then sat in `connecting` indefinitely —
+ * `connectionState` never reached `failed`, so nothing ever told the players it was over.
+ */
+describe("bounding the connection attempt (R-9)", () => {
+  it("reports failure itself when the peer connection never gets anywhere", async () => {
+    const fake = new FakePeerConnection();
+    const transport = transportOver(fake, 0, 20);
+    const seen: TransportStatus[] = [];
+    transport.onStatus((status) => seen.push(status));
+
+    await transport.createOffer();
+    fake.moveTo("connecting");
+    // The creator's clock starts when the answer lands: before that the wait is for a person
+    // to send a message, which is not the network's fault and must not be timed.
+    await transport.acceptAnswer({ type: "answer", sdp: "answer-sdp" });
+
+    expect(seen).not.toContain("failed");
+
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    expect(seen).toContain("failed");
+    // Reported without the peer connection ever agreeing, which is the whole point: nothing in
+    // this test ever moved the fake to `failed`, so the verdict is the transport's own. What
+    // did change its state is the transport closing it, which is what makes the verdict true.
+    expect(fake.closeCalls).toBe(1);
+  });
+
+  it("does not time out a connection that arrives", async () => {
+    const fake = new FakePeerConnection();
+    const transport = transportOver(fake, 0, 20);
+    const seen: TransportStatus[] = [];
+    transport.onStatus((status) => seen.push(status));
+
+    await transport.createOffer();
+    await transport.acceptAnswer({ type: "answer", sdp: "answer-sdp" });
+    fake.moveTo("connected");
+    onlyChannel(fake).open();
+
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    expect(seen).toContain("connected");
+    expect(seen).not.toContain("failed");
+  });
+
+  it("starts the joiner's clock when it accepts the offer", async () => {
+    // The joiner has everything it needs from the other side at that point, so it is the
+    // equivalent moment to the creator applying the answer.
+    const fake = new FakePeerConnection();
+    const transport = transportOver(fake, 0, 20);
+    const seen: TransportStatus[] = [];
+    transport.onStatus((status) => seen.push(status));
+
+    await transport.acceptOffer({ type: "offer", sdp: "offer-sdp" });
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    expect(seen).toContain("failed");
+  });
+
+  it("does not run a clock over the wait for a person", async () => {
+    // A creator whose invitation is sitting in an unsent email is not a failing connection,
+    // and timing that out would fail people for taking a minute to paste something.
+    const fake = new FakePeerConnection();
+    const transport = transportOver(fake, 0, 20);
+    const seen: TransportStatus[] = [];
+    transport.onStatus((status) => seen.push(status));
+
+    await transport.createOffer();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    expect(seen).not.toContain("failed");
+  });
+
+  it("tears the connection down rather than only relabelling it", async () => {
+    // Found by code review. Reporting `failed` while leaving the peer connection running let a
+    // connection that completed after the deadline open its channel and carry real moves —
+    // `send` gates on the channel, not on the status — so the players would have been told it
+    // failed while a live game ran underneath them.
+    const fake = new FakePeerConnection();
+    const transport = transportOver(fake, 0, 20);
+
+    await transport.createOffer();
+    const channel = onlyChannel(fake);
+    await transport.acceptAnswer({ type: "answer", sdp: "answer-sdp" });
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    expect(fake.closeCalls).toBe(1);
+    expect(channel.closeCalls).toBe(1);
+  });
+
+  it("stays failed once it has given up, whatever the peer connection says later", async () => {
+    // The player has already been told the attempt is over and sent off to try another
+    // network. A late `connected` underneath them would be worse than the failure.
+    const fake = new FakePeerConnection();
+    const transport = transportOver(fake, 0, 20);
+    const seen: TransportStatus[] = [];
+    transport.onStatus((status) => seen.push(status));
+
+    await transport.createOffer();
+    await transport.acceptAnswer({ type: "answer", sdp: "answer-sdp" });
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(seen).toContain("failed");
+
+    fake.moveTo("connected");
+    onlyChannel(fake).open();
+
+    expect(seen).not.toContain("connected");
+    // And nothing can be sent down it, which is what "failed" has to mean.
+    expect(() => transport.send({ type: "error", code: "illegalMove", detail: "x" })).toThrow();
   });
 });

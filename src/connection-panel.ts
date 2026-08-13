@@ -41,6 +41,43 @@ const STATUS_TEXT: Record<TransportStatus, string> = {
 const LOST_AFTER_CONNECTING =
   "The connection to the other player has gone. They may have closed the game, or their network may have dropped. Starting a new game is the way back.";
 
+/**
+ * The banner's short label — the one thing on the page that answers "are we connected?".
+ *
+ * The phase live test found both players believing they were connected when they were not,
+ * because the *step* messages congratulated them for finishing their half of the ritual and
+ * nothing on screen contradicted it. Signaling completing is not a connection: it means two
+ * blocks were exchanged, and whether a connection follows is the network's business. So this
+ * reads from the transport and nothing else, and no other text in this panel is allowed to
+ * claim a connection.
+ *
+ * `waiting` is not a transport status. It is the honest name for the gap the ritual leaves —
+ * you have done everything you can and the other person has not finished yet — which the
+ * interface previously had no words for at all.
+ */
+type Banner = "waiting" | TransportStatus;
+
+const BANNER_LABEL: Record<Banner, string> = {
+  idle: "Not connected",
+  connecting: "Connecting…",
+  waiting: "Waiting for the other player",
+  connected: "Connected",
+  reconnecting: "Connection dropped",
+  closed: "Disconnected",
+  failed: "Could not connect",
+};
+
+// The sentence under the label. Only the two states the transport has no opinion about need
+// their own wording; everything else reuses STATUS_TEXT, so there is exactly one copy of each
+// sentence and no way for a verdict and its explanation to drift apart.
+const BANNER_DETAIL: Record<"idle" | "waiting" | "connected", string> = {
+  idle: "Start a game or join one below.",
+  waiting: "Nothing more to do here until they finish their side.",
+  // Not STATUS_TEXT's sentence, which opens with the word the label has just said. This is the
+  // one state the whole banner exists to make readable at a glance, and it should not stutter.
+  connected: "You are both in the same game. Play away.",
+};
+
 function element<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className?: string,
@@ -131,8 +168,23 @@ export function mountConnectionPanel(
   // and builds another, and the abandoned one stays alive long enough to have opinions.
   let live: WebRtcTransport | null = null;
 
+  let transportStatus: TransportStatus = "idle";
+  let everConnected = false;
+
   const section = element("section", "panel");
   section.append(element("h2", undefined, "Play with a friend"));
+
+  // The banner. Deliberately the first thing in the panel and identical on both devices,
+  // because "am I connected?" is the question the ritual leaves people holding and the live
+  // test found both of them guessing at it.
+  //
+  // No `role="status"`: the session announces connection changes into the game's one live
+  // region (D-27), and a second announcing element here would say everything twice.
+  const banner = element("div", "banner");
+  const bannerLabel = element("strong", "banner__label");
+  const bannerDetail = element("span", "banner__detail");
+  banner.append(bannerLabel, bannerDetail);
+  section.append(banner);
 
   // R-56 and R-58, stated before anything connects rather than after — which is the whole
   // point of both, since neither is something a player can act on once the connection exists.
@@ -162,19 +214,51 @@ export function mountConnectionPanel(
   );
   section.append(privacy);
 
-  // Visible only, deliberately. Task 1.5 routes connection announcements through the session
-  // into the game's own live region (R-48); a `role="status"` here as well would mean every
-  // change was announced twice, in two sets of words, from two places on the page.
-  const status = element("p", "panel__status", STATUS_TEXT.idle);
-
   const error = element("p", "panel__error");
   error.setAttribute("role", "alert");
 
   const steps = element("div");
-  section.append(status, error, steps);
+  section.append(error, steps);
 
   function showError(message: string): void {
     error.textContent = message;
+  }
+
+  // `failed` after a connection that worked means something different from `failed` before one
+  // ever did, and the transport reports both the same way.
+  function statusSentence(next: TransportStatus): string {
+    return next === "failed" && everConnected ? LOST_AFTER_CONNECTING : STATUS_TEXT[next];
+  }
+
+  /**
+   * What the banner should say, which is not always what the transport is doing.
+   *
+   * The transport only knows about the network. It has no idea that the ritual has a gap in
+   * the middle where the player has finished their half and is waiting on a human — and that
+   * gap, reported as a bare "Connecting…", is what the live test found people reading as
+   * success. Anything the transport has an opinion about wins; `waiting` fills the silence.
+   */
+  function currentBanner(): Banner {
+    if (transportStatus !== "idle" && transportStatus !== "connecting") return transportStatus;
+
+    // The creator has an invitation out and no reply back yet; the joiner has a reply ready
+    // that the creator has not pasted. Both mean: your part is done, theirs is not.
+    const waitingOnThem =
+      (mode === "starting" && invitation !== null && !exchanged) ||
+      (mode === "joining" && reply !== null);
+
+    if (waitingOnThem) return "waiting";
+    return transportStatus;
+  }
+
+  function renderBanner(): void {
+    const state = currentBanner();
+    bannerLabel.textContent = BANNER_LABEL[state];
+    bannerDetail.textContent =
+      state === "waiting" || state === "idle" || state === "connected"
+        ? BANNER_DETAIL[state]
+        : statusSentence(transportStatus);
+    banner.dataset.state = state;
   }
 
   // A SignalError already carries a sentence written for the person reading it. Anything else
@@ -197,16 +281,27 @@ export function mountConnectionPanel(
 
     const transport = createWebRtcTransport();
     live = transport;
-    let everConnected = false;
+    everConnected = false;
     transport.onStatus((next: TransportStatus) => {
       // A transport that has been abandoned keeps its subscription and its peer connection,
-      // and will still report its own eventual timeout. Writing that to the status line would
+      // and will still report its own eventual timeout. Letting that reach the banner would
       // overwrite the attempt the player is actually watching, with news about one they have
       // already left behind.
       if (transport !== live) return;
+      const arrived = next === "connected" && transportStatus !== "connected";
       if (next === "connected") everConnected = true;
-      status.textContent =
-        next === "failed" && everConnected ? LOST_AFTER_CONNECTING : STATUS_TEXT[next];
+      transportStatus = next;
+
+      // A full re-render only when the connection actually arrives, because that is the one
+      // status change that alters the step text as well as the banner. Rebuilding `steps` on
+      // every status change would be a needless second caller on the render path — the family
+      // of bug N-6 records — and a pasted-but-unsubmitted block survives it only because
+      // `pasted` is held outside the DOM.
+      if (arrived) {
+        render();
+      } else {
+        renderBanner();
+      }
     });
     // Game messages are not this panel's business — the session subscribes to the same
     // transport and moves the board (task 1.4). The panel reports the *connection*, and
@@ -312,15 +407,20 @@ export function mountConnectionPanel(
       element("h3", undefined, "Step 2 — paste their reply"),
     );
 
+    // Says what happened, not what it means. Whether a connection followed is the banner's to
+    // report, and this claiming it was how the live test's players came away certain they were
+    // connected when nothing had connected at all.
     if (exchanged) {
-      steps.append(
-        element("p", undefined, "Done — their reply came through and you are connected."),
-      );
+      steps.append(element("p", undefined, "Their reply has been accepted."));
       return;
     }
 
     steps.append(
-      element("p", undefined, "When a reply comes back, paste it here and you are connected."),
+      element(
+        "p",
+        undefined,
+        "When a reply comes back, paste it into the box below and press Connect.",
+      ),
       pasteField("signal-in", "Their reply", "Connect", (blob) => {
         void connect(blob);
       }),
@@ -342,13 +442,27 @@ export function mountConnectionPanel(
 
     // Their part of step 1 is over. The box and its button go, rather than staying live to be
     // pressed again against a connection that has already been negotiated.
+    //
+    // "The invitation was accepted" used to sit here on its own and read, to the person holding
+    // the phone in the live test, as "connected" — which is why step 2 is now stated as the
+    // thing still outstanding rather than as a footnote to a completed step.
+    // Once the connection exists, the instruction that got you here has to stop insisting you
+    // are not connected yet — the banner would be contradicted by the paragraph beneath it.
+    const connected = transportStatus === "connected";
+
     steps.append(
-      element("p", undefined, "Done — the invitation was accepted."),
+      element(
+        "p",
+        undefined,
+        connected ? "The invitation was accepted." : "The invitation was accepted. One step left.",
+      ),
       element("h3", undefined, "Step 2 — send this reply back"),
       element(
         "p",
         undefined,
-        "Copy this and send it back to whoever invited you. Once they paste it in, you are connected.",
+        connected
+          ? "Your reply got through, which is how you are connected. Nothing else to do."
+          : "Copy this and send it back to whoever invited you. You are not connected until they paste it in and press Connect — the banner above will say so when it happens.",
       ),
       blockField("signal-out", "Your reply", reply),
     );
@@ -363,6 +477,10 @@ export function mountConnectionPanel(
     } else {
       renderJoining();
     }
+    // The banner reads from the same progress these branches do, so it is refreshed with them
+    // rather than only when the transport speaks — `waiting` is a fact about the ritual, and
+    // the transport has nothing to say at the moment it becomes true.
+    renderBanner();
   }
 
   // Rebuilding destroys whatever had focus, so it has to be put back deliberately. Called
@@ -405,6 +523,11 @@ export function mountConnectionPanel(
         // listening to any more.
         live?.close();
         live = null;
+        // The banner describes the attempt in front of the player, and there is no longer one.
+        // Without this reset it keeps reporting the abandoned transport's last state — reading
+        // "Disconnected" above two buttons offering to start a game.
+        transportStatus = "idle";
+        everConnected = false;
         signaler = null;
         mode = "choosing";
         render();
