@@ -102,6 +102,20 @@ a:visited {
   font-size: 0.9rem;
 }
 
+/*
+ * The disclosure a player is asked to read before connecting (R-56, R-58). Grouped and set
+ * apart so three short paragraphs read as one notice rather than as page furniture — this is
+ * the only text in the application that has to survive being skimmed.
+ */
+.panel__privacy {
+  border-left: 3px solid var(--ink-muted);
+  padding-left: 0.75rem;
+}
+
+.panel__privacy .panel__note:last-child {
+  margin-bottom: 0;
+}
+
 .panel__status {
   color: var(--ink);
   font-weight: 600;

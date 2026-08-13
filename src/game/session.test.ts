@@ -17,6 +17,7 @@ import { createSession, type Halt } from "./session.ts";
 function stubTransport() {
   const sent: OutboundMessage[] = [];
   let deliver: ((message: InboundMessage) => void) | null = null;
+  let publishStatus: ((status: TransportStatus) => void) | null = null;
   let throwOnSend = false;
 
   const transport: Transport = {
@@ -30,8 +31,11 @@ function stubTransport() {
         deliver = null;
       };
     },
-    onStatus(_handler: (status: TransportStatus) => void): Unsubscribe {
-      return () => {};
+    onStatus(handler: (status: TransportStatus) => void): Unsubscribe {
+      publishStatus = handler;
+      return () => {
+        publishStatus = null;
+      };
     },
     close(): void {},
   };
@@ -42,11 +46,17 @@ function stubTransport() {
     receive(body: InboundMessage["body"], seq = 1): void {
       deliver?.({ protocolVersion: PROTOCOL_VERSION, seq, body });
     },
+    setStatus(...statuses: readonly TransportStatus[]): void {
+      for (const status of statuses) publishStatus?.(status);
+    },
     breakSending(): void {
       throwOnSend = true;
     },
     get listening(): boolean {
       return deliver !== null;
+    },
+    get watchingStatus(): boolean {
+      return publishStatus !== null;
     },
   };
 }
@@ -489,5 +499,154 @@ describe("attaching and detaching", () => {
     session.play(move);
     expect(first.sent).toEqual([]);
     expect(second.sent).toHaveLength(1);
+  });
+});
+
+/*
+ * Task 1.5. The session is where connection status becomes something the interface may see,
+ * because `ui/` may not import `protocol/` — so these are about the translation, not about
+ * the transport, which has its own tests.
+ */
+describe("connection state", () => {
+  it("reports a first connection and a recovered one differently", () => {
+    // The whole reason this is not TransportStatus renamed: `connected` is the same value
+    // both times, and "you are both in the same game" is the wrong thing to say the second.
+    const stub = stubTransport();
+    const session = createSession();
+    const seen: string[] = [];
+
+    session.attach(stub.transport);
+    session.onConnection((state) => seen.push(state));
+
+    stub.setStatus("connecting", "connected", "reconnecting", "connected");
+
+    expect(seen).toEqual(["connecting", "ready", "interrupted", "resumed"]);
+  });
+
+  it("separates a connection that failed after working from one that never formed", () => {
+    // Found by live-testing 1.5: closing one tab drove the other to `failed`, which told a
+    // player whose network was demonstrably fine to go and try a different one. The transport
+    // reports both cases identically; only the session knows there had been a connection.
+    const never = stubTransport();
+    const lost = stubTransport();
+    const seenNever: string[] = [];
+    const seenLost: string[] = [];
+
+    const one = createSession();
+    one.attach(never.transport);
+    one.onConnection((state) => seenNever.push(state));
+    never.setStatus("connecting", "failed");
+
+    const two = createSession();
+    two.attach(lost.transport);
+    two.onConnection((state) => seenLost.push(state));
+    lost.setStatus("connecting", "connected", "reconnecting", "failed");
+
+    expect(seenNever).toEqual(["connecting", "unreachable"]);
+    expect(seenLost).toEqual(["connecting", "ready", "interrupted", "lost"]);
+  });
+
+  it("names a network that never connected at all separately from one that closed", () => {
+    // R-9's case. These need different sentences, so they cannot collapse into one state.
+    const failed = stubTransport();
+    const closed = stubTransport();
+    const seenFailed: string[] = [];
+    const seenClosed: string[] = [];
+
+    const one = createSession();
+    one.attach(failed.transport);
+    one.onConnection((state) => seenFailed.push(state));
+    failed.setStatus("connecting", "failed");
+
+    const two = createSession();
+    two.attach(closed.transport);
+    two.onConnection((state) => seenClosed.push(state));
+    closed.setStatus("connecting", "connected", "closed");
+
+    expect(seenFailed).toEqual(["connecting", "unreachable"]);
+    expect(seenClosed).toEqual(["connecting", "ready", "closed"]);
+  });
+
+  it("does not turn a repeated `connected` into a reconnection", () => {
+    // Found by code review. The everConnected latch has to be set *after* the duplicate-state
+    // guard: setting it inside the switch made the second `connected` compute `resumed`, a
+    // state that differs from the first, so the guard waved it through and the player was
+    // told the connection had come back when it had never gone away. `WebRtcTransport` does
+    // not republish a status, but `protocol/`'s contract does not forbid it and this function
+    // is written on the assumption that one might.
+    const stub = stubTransport();
+    const session = createSession();
+    const seen: string[] = [];
+
+    session.attach(stub.transport);
+    session.onConnection((state) => seen.push(state));
+
+    stub.setStatus("connected", "connected", "connected");
+
+    expect(seen).toEqual(["ready"]);
+  });
+
+  it("does not repeat a state the connection is already in", () => {
+    // Announcing "the connection dropped" twice for one drop sounds like two drops.
+    const stub = stubTransport();
+    const session = createSession();
+    const seen: string[] = [];
+
+    session.attach(stub.transport);
+    session.onConnection((state) => seen.push(state));
+
+    stub.setStatus("reconnecting", "reconnecting", "reconnecting");
+
+    expect(seen).toEqual(["interrupted"]);
+  });
+
+  it("tells a late subscriber the state it missed", () => {
+    // The panel builds the transport, so the interface routinely subscribes after the first
+    // status has already gone by. Same reason onHalt replays.
+    const stub = stubTransport();
+    const session = createSession();
+    const seen: string[] = [];
+
+    session.attach(stub.transport);
+    stub.setStatus("connecting", "connected");
+    session.onConnection((state) => seen.push(state));
+
+    expect(seen).toEqual(["ready"]);
+  });
+
+  it("goes quiet once the session has halted", () => {
+    // The halt is terminal in v1 (R-35). Reporting the weather afterwards, to someone whose
+    // game has stopped for a reason they have been given, is noise over the last thing that
+    // mattered.
+    const stub = stubTransport();
+    const session = createSession();
+    const seen: string[] = [];
+
+    session.attach(stub.transport);
+    session.onConnection((state) => seen.push(state));
+    stub.setStatus("connecting", "connected");
+
+    // An inbound error halts this side (task 3.6).
+    stub.receive({ type: "error", code: "illegalMove", detail: "no" });
+    expect(session.haltReason()).not.toBeNull();
+
+    stub.setStatus("reconnecting", "closed");
+
+    expect(seen).toEqual(["connecting", "ready"]);
+  });
+
+  it("stops watching a transport it has detached from", () => {
+    const first = stubTransport();
+    const session = createSession();
+    const seen: string[] = [];
+
+    session.attach(first.transport);
+    session.onConnection((state) => seen.push(state));
+    session.attach(stubTransport().transport);
+
+    expect(first.watchingStatus).toBe(false);
+
+    first.setStatus("failed");
+    expect(seen).toEqual([]);
   });
 });

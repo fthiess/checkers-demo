@@ -903,3 +903,63 @@ The reply to undecodable messages sits in the composition root rather than in `g
 into `protocol/`'s `Transport`, which is a contract change worth making deliberately if a
 second thing ever needs it, not as a side effect of this one (issue #31 covers the composition
 root's own home).
+
+---
+
+## D-27 — One live region for the whole application, and the game names the connection
+
+**Date:** 2026-08-13 · **Session owner's call**
+
+**Context.** R-48 asks for connection status changes to be announced to screen-reader users.
+Task 3.5 built the live region and deliberately left connection status out, because nothing
+emitted a `TransportStatus` yet; task 1.3 then gave the connection panel a `role="status"` of
+its own for its visible status line. So by the time task 1.5 arrived, the application had two
+candidate regions and no decision about which one speaks.
+
+The dependency rule made this more than a placement question. `ui/` may not import
+`protocol/`, so `TransportStatus` cannot reach the interface directly — connection status
+reaches it through `game/` or not at all.
+
+**Decision.** One live region announces everything: moves, halts and connection changes all go
+through the region declared in `index.html`. The panel's status line stays **visible only**,
+its `role="status"` removed. Connection status reaches the interface as a `game/`-owned
+`ConnectionState`, published by the session, with `ui/announce.ts` choosing the words.
+
+**Why.** Two live regions announcing the same event in two sets of words is worse than one
+announcing it in one: a screen reader delivers both, and the listener has to work out whether
+they are one piece of news or two. Routing through `game/` is what the dependency rule was
+already asking for — the alternative, re-exporting `TransportStatus` from `game/`, would have
+satisfied the lint rule, which checks import paths, while defeating what the rule is for.
+
+N-4 warned against renaming a type for the sake of renaming it, so `ConnectionState` had to
+earn the difference, and it does in one place the transport cannot reach: **the transport
+cannot tell a first connection from a recovered one**, because `connected` is the same value
+both times, and "you are both in the same game" is the wrong thing to say to someone who has
+just been reconnected. The session, having watched the states go by, can.
+
+**The live test changed this decision's shape.** Verifying 1.5 in two tabs showed that closing
+one of them told the other *"these two networks cannot reach each other directly… trying again
+from a different network is the usual fix"* — advice to go and fix a network that had been
+working seconds earlier, because `RTCPeerConnection` reports `failed` both when a connection
+never formed and when a working one dies. That is indistinguishable at the transport, and
+distinguishable in the session, which already knew whether there had been a connection. So
+`failed` maps to two states, `unreachable` and `lost`, with different sentences. The panel
+latches the same distinction independently for its visible text, because it does not know
+about the session — the two are the same news read and heard, and they have to agree.
+
+**Consequences.** Adding a `ConnectionState` now means adding a sentence: `describeConnection`
+switches exhaustively, and its test enumerates the union through a `Record<ConnectionState,
+_>` so the type checker fails until the new state is covered. `absent` and `connecting`
+deliberately announce **nothing** — the first is where the page starts, and the second is
+reached while an invitation is still being prepared, so announcing it would claim something is
+under way before there is anyone at the other end. Connection announcements also stop once the
+session has halted (D-26): the halt is terminal, and its message is the last one that matters.
+
+One consequence is sharper than it looks, and the code review found it the hard way. **The
+duplicate guard has to compare the transport's status, not the state derived from it.** A
+republished `connected` derives `resumed` the second time round, because the first has already
+latched "there has been a connection" — so a guard comparing derived states sees `resumed`
+against `ready`, calls them different, and announces a reconnection that never happened. The
+first attempt at this fix moved the latch and still failed, which the regression test caught;
+comparing the status is what actually works, and every distinct status maps to a distinct
+state anyway.

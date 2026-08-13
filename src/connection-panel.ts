@@ -1,5 +1,5 @@
 /**
- * The connection screen (task 1.3 — DESIGN.md §4.5, R-5, R-6, R-7, R-9, R-56).
+ * The connection screen (tasks 1.3 and 1.5 — DESIGN.md §4.5, R-5, R-6, R-7, R-9, R-56, R-58).
  *
  * Replaces task 1.2's raw-SDP test harness. Everything a player sees here is ordinary
  * language: there is no mention of SDP, ICE, offers, answers, or peers, because R-7 asks for
@@ -9,8 +9,9 @@
  * It sits beside main.ts rather than in ui/ because it talks to net/, which ui/ may not do.
  * main.ts is the de-facto composition root until a real app/ module exists (issue #31).
  *
- * Connection-status *announcements* are deliberately not wired to the live region here —
- * task 1.5 owns that, along with the fuller failure and privacy copy (R-48).
+ * Connection-status *announcements* are not made here. Task 1.5 routes them through the
+ * session into the game's own live region, so that one region speaks for the whole
+ * application (R-48, D-27); the status line below is what the same news looks like.
  */
 
 import { createManualSignaler, type ManualSignaler, SignalError } from "./net/manual-signaler.ts";
@@ -31,6 +32,14 @@ const STATUS_TEXT: Record<TransportStatus, string> = {
   failed:
     "These two networks cannot reach each other directly. This happens on some home and office networks, and often on mobile data. Trying again from a different network is the usual fix.",
 };
+
+// `failed` after a connection that worked is a different event from `failed` before one ever
+// did, and the transport reports both the same way — so the panel latches the difference for
+// itself rather than reading the session, which it does not know about. The session draws the
+// same distinction for the announcement (see `ConnectionState`); these two have to agree,
+// because they are the same news read and heard.
+const LOST_AFTER_CONNECTING =
+  "The connection to the other player has gone. They may have closed the game, or their network may have dropped. Starting a new game is the way back.";
 
 function element<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -118,22 +127,45 @@ export function mountConnectionPanel(
   let exchanged = false;
   let busy = false;
   let signaler: ManualSignaler | null = null;
+  // The transport whose news the status line is currently showing. A failed start abandons one
+  // and builds another, and the abandoned one stays alive long enough to have opinions.
+  let live: WebRtcTransport | null = null;
 
   const section = element("section", "panel");
   section.append(element("h2", undefined, "Play with a friend"));
 
-  // R-56: stated before anything connects, not after. This is the short form; task 1.5 owns
-  // the fuller privacy copy.
-  section.append(
+  // R-56 and R-58, stated before anything connects rather than after — which is the whole
+  // point of both, since neither is something a player can act on once the connection exists.
+  //
+  // Written as three short paragraphs rather than one dense one: this is the only part of the
+  // application a player is asked to read *before* deciding to do something, so it has to
+  // survive being skimmed. The comparison to a video call is doing the real work — "your
+  // network address" means little on its own, and most people have already accepted exactly
+  // this trade for exactly this reason.
+  const privacy = element("div", "panel__privacy");
+  privacy.append(
     element(
       "p",
       "panel__note",
-      "This connects your browser straight to your friend's, with nothing in between. That means each of you can see the other's network address — about what a video call would reveal. Nothing you do here reaches a server of ours, because there isn't one.",
+      "This connects your browser straight to your friend's, with nothing in between. There is no server of ours in the middle, because there isn't one at all — nothing you do here is sent to us, stored by us, or seen by us.",
+    ),
+    element(
+      "p",
+      "panel__note",
+      "The trade for that is that a direct connection needs each of you to know where the other is on the internet. So the invitation and reply you exchange contain your network addresses, and each of you can see the other's — roughly what a video call between you would reveal. Send them to someone you would be happy to make a video call to, and treat them as you would a phone number.",
+    ),
+    element(
+      "p",
+      "panel__note",
+      "This game also trusts whoever you connect to. Each side checks that every move it receives is a legal one, but nothing stops someone running a modified copy of the game from finding some other way to cheat. It is built for playing with a friend, and that is the only thing it is safe to assume.",
     ),
   );
+  section.append(privacy);
 
+  // Visible only, deliberately. Task 1.5 routes connection announcements through the session
+  // into the game's own live region (R-48); a `role="status"` here as well would mean every
+  // change was announced twice, in two sets of words, from two places on the page.
   const status = element("p", "panel__status", STATUS_TEXT.idle);
-  status.setAttribute("role", "status");
 
   const error = element("p", "panel__error");
   error.setAttribute("role", "alert");
@@ -164,8 +196,17 @@ export function mountConnectionPanel(
     if (signaler) return signaler;
 
     const transport = createWebRtcTransport();
+    live = transport;
+    let everConnected = false;
     transport.onStatus((next: TransportStatus) => {
-      status.textContent = STATUS_TEXT[next];
+      // A transport that has been abandoned keeps its subscription and its peer connection,
+      // and will still report its own eventual timeout. Writing that to the status line would
+      // overwrite the attempt the player is actually watching, with news about one they have
+      // already left behind.
+      if (transport !== live) return;
+      if (next === "connected") everConnected = true;
+      status.textContent =
+        next === "failed" && everConnected ? LOST_AFTER_CONNECTING : STATUS_TEXT[next];
     });
     // Game messages are not this panel's business — the session subscribes to the same
     // transport and moves the board (task 1.4). The panel reports the *connection*, and
@@ -359,7 +400,11 @@ export function mountConnectionPanel(
       } catch (caught) {
         // Back to the choice, so there is something to press. The peer connection is left in
         // whatever state it failed in, so the signaler goes with it and a retry builds a
-        // fresh one rather than asking the broken one again.
+        // fresh one rather than asking the broken one again — and the abandoned one is closed
+        // rather than left holding a peer connection and a STUN conversation nobody is
+        // listening to any more.
+        live?.close();
+        live = null;
         signaler = null;
         mode = "choosing";
         render();
