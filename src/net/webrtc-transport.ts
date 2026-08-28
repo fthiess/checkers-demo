@@ -42,6 +42,28 @@ const DEFAULT_GATHERING_TIMEOUT_MS = 5000;
  */
 const DEFAULT_CONNECTION_TIMEOUT_MS = 30_000;
 
+/**
+ * How long a *dropped* connection may keep saying it is trying before this transport calls it
+ * failed (R-9, issue #42).
+ *
+ * The bound above covers the initial attempt only: its clock stops the moment a connection
+ * arrives, so a connection that formed and later dropped had nothing timing it at all. If the
+ * browser then never moves from `disconnected` to `failed`, "trying to pick it up again…"
+ * stays on screen forever — the same shape of unbounded wait the live test found on the
+ * initial attempt.
+ *
+ * Sixty seconds, and deliberately longer than the attempt bound rather than shorter. A
+ * dropped connection is one the browser may genuinely recover, and it usually concludes on its
+ * own within thirty to forty seconds of consent checks failing. Firing before that window
+ * closes would abandon connections that were about to come back — which is the regression
+ * issue #42 warns a naive second timer would be. This exists for the case where the browser
+ * never concludes at all, so it waits out the browser's own attempt first.
+ *
+ * ⚠ Unvalidated against a real network. The live test settles it: drop one side's network for
+ * several minutes and watch whether the other side ever stops saying it is trying.
+ */
+const DEFAULT_DROP_TIMEOUT_MS = 60_000;
+
 const DATA_CHANNEL_LABEL = "checkers";
 
 export interface ProtocolFailure {
@@ -53,6 +75,7 @@ export interface WebRtcTransportOptions {
   readonly iceServers?: readonly RTCIceServer[];
   readonly gatheringTimeoutMs?: number;
   readonly connectionTimeoutMs?: number;
+  readonly dropTimeoutMs?: number;
   // Injected so the transport can be unit-tested against a fake: `RTCPeerConnection` does
   // not exist outside a browser, and this project adds no dependency to simulate one.
   readonly createPeerConnection?: (configuration: RTCConfiguration) => RTCPeerConnection;
@@ -72,6 +95,7 @@ export interface WebRtcTransport extends Transport {
 export function createWebRtcTransport(options: WebRtcTransportOptions = {}): WebRtcTransport {
   const gatheringTimeoutMs = options.gatheringTimeoutMs ?? DEFAULT_GATHERING_TIMEOUT_MS;
   const connectionTimeoutMs = options.connectionTimeoutMs ?? DEFAULT_CONNECTION_TIMEOUT_MS;
+  const dropTimeoutMs = options.dropTimeoutMs ?? DEFAULT_DROP_TIMEOUT_MS;
   const makePeerConnection =
     options.createPeerConnection ?? ((configuration) => new RTCPeerConnection(configuration));
 
@@ -91,29 +115,41 @@ export function createWebRtcTransport(options: WebRtcTransportOptions = {}): Web
   // browser may never report. Once true it outranks whatever `connectionState` says, because
   // the player has already been told the attempt is over.
   let timedOut = false;
-  let attemptTimer: ReturnType<typeof setTimeout> | null = null;
+  // One timer serves both R-9 clocks — the initial attempt and a dropped connection — because
+  // only one of them can ever be running. The attempt clock is stopped only by `connected`, so
+  // a drop cannot start its own while an attempt is still being timed; and a drop can only
+  // follow a `connected` that already stopped the attempt clock. The guard below leans on that
+  // rather than tracking which clock is which.
+  let giveUpTimer: ReturnType<typeof setTimeout> | null = null;
+  // Whether a connection has ever been up. Only the drop bound needs it: `reconnecting` before
+  // anything ever connected is not a drop, and must not start a drop clock. Kept here rather
+  // than read from the session, which this layer knows nothing about.
+  let everConnected = false;
 
-  function stopAttemptTimer(): void {
-    if (attemptTimer !== null) {
-      clearTimeout(attemptTimer);
-      attemptTimer = null;
+  function stopGiveUpTimer(): void {
+    if (giveUpTimer !== null) {
+      clearTimeout(giveUpTimer);
+      giveUpTimer = null;
     }
   }
 
   /**
-   * Starts the R-9 clock on the connection attempt, once there is an attempt to time.
+   * Starts an R-9 clock, once there is something to time.
    *
-   * Called when a remote description is applied, which is the first moment ICE has anything
-   * to work with — on the joiner that is `acceptOffer`, on the creator `acceptAnswer`. Idle
-   * time before that belongs to the players and their email client, not to the network, and
-   * timing it would fail people who took a minute to send a message.
+   * The initial attempt is timed from when a remote description is applied, which is the first
+   * moment ICE has anything to work with — on the joiner that is `acceptOffer`, on the creator
+   * `acceptAnswer`. Idle time before that belongs to the players and their email client, not to
+   * the network, and timing it would fail people who took a minute to send a message.
+   *
+   * A dropped connection is timed from when the status becomes `reconnecting` instead, on a
+   * longer bound (issue #42) — see `DEFAULT_DROP_TIMEOUT_MS` for why longer and not shorter.
    */
-  function startAttemptTimer(): void {
-    if (closed || timedOut || attemptTimer !== null) return;
+  function startGiveUpTimer(afterMs: number): void {
+    if (closed || timedOut || giveUpTimer !== null) return;
     if (currentStatus() === "connected") return;
 
-    attemptTimer = setTimeout(() => {
-      attemptTimer = null;
+    giveUpTimer = setTimeout(() => {
+      giveUpTimer = null;
       if (closed || currentStatus() === "connected") return;
       timedOut = true;
       // Giving up has to be real, not a label. Left running, a peer connection that completes
@@ -124,7 +160,7 @@ export function createWebRtcTransport(options: WebRtcTransportOptions = {}): Web
       channel?.close();
       connection.close();
       publishStatus();
-    }, connectionTimeoutMs);
+    }, afterMs);
   }
 
   // §4.1's six statuses map one-to-one onto RTCPeerConnection.connectionState's six values,
@@ -157,10 +193,25 @@ export function createWebRtcTransport(options: WebRtcTransportOptions = {}): Web
 
   function publishStatus(): void {
     const next = currentStatus();
-    // A connection that arrived has nothing left to time out. Stopping here rather than in the
-    // event handlers covers every route to `connected`, including the data channel opening
-    // after the peer connection did.
-    if (next === "connected") stopAttemptTimer();
+    if (next === "connected") everConnected = true;
+    // Nothing is left to bound once this has an answer, whoever produced it. `connected` is the
+    // obvious one, and stopping here rather than in the event handlers covers every route to it
+    // — including the data channel opening after the peer connection did.
+    //
+    // `failed` and `closed` matter just as much, and only became reachable with a clock running
+    // when the drop bound arrived: a dropped connection normally ends with the browser reporting
+    // `failed` after thirty to forty seconds, well inside the sixty this waits. Left running, the
+    // clock would then fire on a connection the browser had already given up on, tear it down a
+    // second time, and publish over the top of that verdict — the abandoned-transport shape that
+    // bit task 1.5. These timers exist for the case where the browser never concludes; once it
+    // has, they have nothing left to do.
+    if (next === "connected" || next === "failed" || next === "closed") stopGiveUpTimer();
+    // A connection that has dropped becomes the thing being timed (issue #42). Gated on having
+    // connected before, so this can never start a clock over the wait for a person to paste a
+    // block, which is deliberately untimed. Started here rather than in the event handler so
+    // every route into `reconnecting` is covered, and harmless on a repeat publish because a
+    // clock already running is never replaced.
+    if (next === "reconnecting" && everConnected) startGiveUpTimer(dropTimeoutMs);
     if (next === lastPublished) return;
     lastPublished = next;
     for (const handler of statusHandlers) handler(next);
@@ -243,7 +294,7 @@ export function createWebRtcTransport(options: WebRtcTransportOptions = {}): Web
       await waitForGathering();
       // The joiner has everything it needs from the other side, so from here the clock is the
       // network's (R-9).
-      startAttemptTimer();
+      startGiveUpTimer(connectionTimeoutMs);
       publishStatus();
       return connection.localDescription ?? answer;
     },
@@ -252,7 +303,7 @@ export function createWebRtcTransport(options: WebRtcTransportOptions = {}): Web
       await connection.setRemoteDescription(answer);
       // Both descriptions are in place, so the creator's attempt is now genuinely under way and
       // is the thing R-9 bounds. Before this point the wait was for a person, not a network.
-      startAttemptTimer();
+      startGiveUpTimer(connectionTimeoutMs);
       publishStatus();
     },
 
@@ -296,7 +347,7 @@ export function createWebRtcTransport(options: WebRtcTransportOptions = {}): Web
     close(): void {
       if (closed) return;
       closed = true;
-      stopAttemptTimer();
+      stopGiveUpTimer();
       channel?.close();
       connection.close();
       publishStatus();

@@ -1022,3 +1022,74 @@ the game's one live region, and a second announcing element here would say every
 What this decision does **not** settle is whether the connection failed because of the
 networks. The interface was lying loudly enough to mask whatever was happening underneath, so
 the STUN-only question (D-1, D-23) is still open and needs the live test run again.
+
+## D-29 — The board refuses input until a connection has existed, and never again after that
+
+**Date:** 2026-08-28 · **Session owner's call**
+
+**Context.** Task 1.4 decided that a move which failed to send should still be applied
+locally: the move was legal, the player made it, and a channel dying mid-gesture should not
+swallow it. `Session.play` therefore catches the `send` throw deliberately. The phase live
+test showed what that costs before a connection has ever existed — both players moved pieces,
+both boards changed, neither move crossed, and nothing on either screen said so (issue #41).
+
+**Decision.** The board accepts selections and moves only once a connection has been
+established. `Session` reports the fact through `hasConnected()`; `main.ts` gates input on it
+in the same two places the halt gate already lives. Focus still moves around the board, as it
+does for a halted game — reading it is fine, and taking the keyboard away would be its own bug.
+After a connection drops, input is still accepted: that is task 1.4's case, and it stands.
+
+**Why.** Task 1.4's argument depends on there being a history to reconcile and a peer to
+reconcile it with. Before the first connection there is neither, and the local board silently
+becomes a private game — precisely the divergence task 3.6 halts the game to prevent once the
+two sides *are* talking. Refusing input is the same answer 3.6 already gives to the same
+problem, so it reuses that mechanism rather than inventing a second one.
+
+The refusal is deliberately silent: D-28's banner already says "Not connected" and tells the
+player what to do about it, and a second message competing with it was the failure mode of the
+live test rather than a remedy for it (session owner's call).
+
+**Consequences.** `hasConnected` is a query about the connection's history, not a permission:
+`play` still applies a move without a transport, because a session with no transport is a
+legitimate thing to hold. The tests build them, and phase 6.2's single-player game will be
+one — that task will have to decide what "no opponent to send to" means, and this entry is
+where the assumption it inherits is written down. Task 5.1's turn ownership is the other half
+of "the board should refuse moves it has no business accepting".
+
+## D-30 — A dropped connection is bounded too, on a longer clock than the first attempt
+
+**Date:** 2026-08-28 · **Session owner's call**
+
+**Context.** D-28 bounded the connection *attempt* after the live test found one sitting in
+`connecting` indefinitely. That clock stops the moment a connection arrives, so a connection
+that formed and later dropped had nothing timing it at all: if the browser never moved from
+`disconnected` to `failed`, "trying to pick it up again…" would stay on screen forever
+(issue #42). The issue was filed rather than fixed at the time, on the grounds that a timer
+which gives up on a connection the browser was about to recover would be a regression rather
+than a fix.
+
+**Decision.** A dropped connection is bounded at sixty seconds — deliberately *longer* than
+the thirty-second bound on the initial attempt — after which the transport reports failure and
+tears the connection down, as D-28 established. Both clocks share one timer, since only one of
+them can ever be running. Either clock stops the moment the status becomes `connected`,
+`failed`, or `closed`: once the browser has reached a verdict, there is nothing left to bound.
+The drop clock starts only if a connection has previously been up, so it can never run over the
+deliberately untimed wait for a person to paste a block.
+
+**Why longer, not shorter.** The two clocks exist for opposite failures. The attempt clock
+guards against a connection that will never form, where the player's remedy is to try another
+network. The drop clock guards against a *report* that never arrives — the browser usually
+concludes a dropped connection within thirty to forty seconds of failed consent checks, and
+firing inside that window would abandon connections that were about to come back, which is
+exactly the regression issue #42 warned against. So it waits out the browser's own attempt
+first and exists only for the case where the browser never concludes at all.
+
+**Consequences.** Stopping on `failed` and `closed` is not cosmetic: because the browser's own
+verdict normally arrives inside the drop window, a clock left running would fire afterwards,
+tear down an already-failed connection a second time, and publish over the top of that verdict
+— the abandoned-transport shape that bit task 1.5. Found by the code review on this change and
+pinned by a regression test.
+
+⚠ **Sixty seconds is unvalidated against a real network**, as thirty was before it. The phase
+live test settles both: drop one side's network for several minutes and watch whether the other
+side ever stops saying it is trying.

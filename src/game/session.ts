@@ -81,6 +81,21 @@ export interface Session {
    * what it returns so that no call site can read as an instruction to stop the game.
    */
   haltReason(): Halt | null;
+  /**
+   * Whether a connection has ever been established — false until the first one arrives, and
+   * true from then on, including after it drops.
+   *
+   * A query about the connection's history, not about the game's rules, and deliberately not a
+   * permission: `play` still applies a move without one, because a session with no transport is
+   * a legitimate thing to hold (the tests build them, and a single-player game in phase 6 will
+   * be one). It exists because the *board* needs the distinction. Accepting moves before any
+   * connection has existed makes the local board a private game with no history to reconcile
+   * and no peer to reconcile it with, which is the divergence task 3.6 halts the game to
+   * prevent once the two sides are talking (issue #41). After a drop the answer stays true, so
+   * play continues: that move was legal, the player made it, and 5.4's `sync` is what settles
+   * the histories afterwards.
+   */
+  hasConnected(): boolean;
   /** Applies a move made on this client, then sends it to the opponent. Ignored once halted. */
   play(move: Move): void;
   /** Connects the session to a transport once one exists. Replaces any previous one. */
@@ -254,6 +269,10 @@ export function createSession(initial: Position = createOpeningPosition()): Sess
 
     haltReason(): Halt | null {
       return halted;
+    },
+
+    hasConnected(): boolean {
+      return everConnected;
     },
 
     play(move: Move): void {
