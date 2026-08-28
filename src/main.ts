@@ -134,11 +134,28 @@ session.onOpponentMove(({ move, before, after }) => {
   render();
 });
 
+/**
+ * Whether the board should act on input, as opposed to merely let it move around.
+ *
+ * Two reasons it should not, and they are the same reason twice: the board must not pretend to
+ * be playing a game that is not being played. Once the two clients have disagreed, play has
+ * stopped and said so (R-35). Before a connection has ever existed, there is no opponent —
+ * moves would be applied here, silently fail to send, and turn the local board into a private
+ * game whose divergence nothing can reconcile (issue #41). The live test found exactly that:
+ * both players moving pieces, both boards changing, neither move ever crossing.
+ *
+ * A drop *after* a connection is deliberately not included. That move was legal, the player
+ * made it, and 5.4's `sync` reconciles the histories — see `hasConnected`.
+ */
+function boardAcceptsInput(): boolean {
+  return session.haltReason() === null && session.hasConnected();
+}
+
 function activateSquare(square: SquareIndex): void {
   focusedSquare = square;
-  // Focus still moves around a halted board — reading it is fine, and taking the keyboard
-  // away would be its own bug. Only selecting and moving stop.
-  if (session.haltReason()) {
+  // Focus still moves around a board that is not accepting input — reading it is fine, and
+  // taking the keyboard away would be its own bug. Only selecting and moving stop.
+  if (!boardAcceptsInput()) {
     render();
     return;
   }
@@ -155,7 +172,7 @@ function handleSquareClick(square: SquareIndex): void {
 }
 
 function handlePiecePointerDown(event: PointerEvent, square: SquareIndex): void {
-  if (session.haltReason()) return;
+  if (!boardAcceptsInput()) return;
 
   focusedSquare = square;
   state = selectSquare(state, square);

@@ -119,10 +119,12 @@ function transportOver(
   fake: FakePeerConnection,
   gatheringTimeoutMs = 5000,
   connectionTimeoutMs = 60_000,
+  dropTimeoutMs = 60_000,
 ) {
   return createWebRtcTransport({
     gatheringTimeoutMs,
     connectionTimeoutMs,
+    dropTimeoutMs,
     createPeerConnection: () => asPeerConnection(fake),
   });
 }
@@ -478,5 +480,132 @@ describe("bounding the connection attempt (R-9)", () => {
     expect(seen).not.toContain("connected");
     // And nothing can be sent down it, which is what "failed" has to mean.
     expect(() => transport.send({ type: "error", code: "illegalMove", detail: "x" })).toThrow();
+  });
+});
+
+/*
+ * Issue #42. The bound above stops the moment a connection arrives, so a connection that
+ * formed and later dropped had nothing timing it at all — and if the browser never moves from
+ * `disconnected` to `failed`, "trying to pick it up again…" stays on screen forever.
+ *
+ * The issue's own warning shapes these tests as much as the fix does: a timer that gives up on
+ * a connection the browser was about to recover would be a regression, not a fix. So the
+ * recovery case is tested as carefully as the failure case.
+ */
+describe("bounding a dropped connection (R-9, #42)", () => {
+  async function connectedWith(fake: FakePeerConnection, dropTimeoutMs: number) {
+    const transport = transportOver(fake, 0, 60_000, dropTimeoutMs);
+    await transport.createOffer();
+    await transport.acceptAnswer({ type: "answer", sdp: "answer-sdp" });
+    fake.moveTo("connected");
+    onlyChannel(fake).open();
+    return transport;
+  }
+
+  it("reports failure itself when a dropped connection never comes back", async () => {
+    const fake = new FakePeerConnection();
+    const transport = await connectedWith(fake, 20);
+    const seen: TransportStatus[] = [];
+    transport.onStatus((status) => seen.push(status));
+
+    fake.moveTo("disconnected");
+    expect(seen).toContain("reconnecting");
+    expect(seen).not.toContain("failed");
+
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    // Nothing in this test ever moved the fake to `failed`, so the verdict is the transport's
+    // own — and the teardown is what makes it true rather than merely a label.
+    expect(seen).toContain("failed");
+    expect(fake.closeCalls).toBe(1);
+  });
+
+  it("does not give up on a connection that comes back", async () => {
+    const fake = new FakePeerConnection();
+    const transport = await connectedWith(fake, 100);
+    const seen: TransportStatus[] = [];
+    transport.onStatus((status) => seen.push(status));
+
+    fake.moveTo("disconnected");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    fake.moveTo("connected");
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    expect(seen).toContain("reconnecting");
+    expect(seen.at(-1)).toBe("connected");
+    expect(seen).not.toContain("failed");
+    expect(fake.closeCalls).toBe(0);
+  });
+
+  it("does not let a drop replace the initial attempt's shorter clock", async () => {
+    // A connection can report `disconnected` before it has ever succeeded. The drop bound is
+    // the longer of the two deliberately, so letting it take over here would *extend* the
+    // attempt the live test proved needs bounding.
+    const fake = new FakePeerConnection();
+    const transport = transportOver(fake, 0, 20, 5000);
+    const seen: TransportStatus[] = [];
+    transport.onStatus((status) => seen.push(status));
+
+    await transport.createOffer();
+    await transport.acceptAnswer({ type: "answer", sdp: "answer-sdp" });
+    fake.moveTo("disconnected");
+
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    expect(seen).toContain("failed");
+  });
+
+  it("stops timing a dropped connection once the transport is closed", async () => {
+    const fake = new FakePeerConnection();
+    const transport = await connectedWith(fake, 20);
+    const seen: TransportStatus[] = [];
+    transport.onStatus((status) => seen.push(status));
+
+    fake.moveTo("disconnected");
+    transport.close();
+
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    // A timer surviving close would tear down a second time and overwrite the status of
+    // whatever replaced this transport — the abandoned-transport bug task 1.5's review found.
+    expect(seen.at(-1)).toBe("closed");
+    expect(fake.closeCalls).toBe(1);
+  });
+  it("stops timing once the browser reports the failure itself", async () => {
+    // The routine path, not an edge case: a browser usually concludes a dropped connection
+    // within thirty to forty seconds, well inside the bound. A clock left running would then
+    // fire on a connection already given up on, tear it down a second time, and publish over
+    // the top of that verdict.
+    const fake = new FakePeerConnection();
+    const transport = await connectedWith(fake, 40);
+    const seen: TransportStatus[] = [];
+    transport.onStatus((status) => seen.push(status));
+
+    fake.moveTo("disconnected");
+    fake.moveTo("failed");
+    expect(fake.closeCalls).toBe(0);
+
+    await new Promise((resolve) => setTimeout(resolve, 70));
+
+    expect(seen.at(-1)).toBe("failed");
+    expect(fake.closeCalls).toBe(0);
+  });
+
+  it("does not start a drop clock over the wait for a person", async () => {
+    // `reconnecting` before anything ever connected is not a drop. Starting a clock here would
+    // time the wait for someone to paste a block, which is deliberately untimed.
+    const fake = new FakePeerConnection();
+    const transport = transportOver(fake, 0, 60_000, 20);
+    const seen: TransportStatus[] = [];
+    transport.onStatus((status) => seen.push(status));
+
+    await transport.createOffer();
+    fake.moveTo("disconnected");
+
+    await new Promise((resolve) => setTimeout(resolve, 40));
+
+    expect(seen).not.toContain("failed");
+    expect(fake.closeCalls).toBe(0);
   });
 });

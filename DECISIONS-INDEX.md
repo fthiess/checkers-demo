@@ -20,7 +20,8 @@ Update this index in the same pull request as any append to the log.
 | **Game session and shared state** | [D-25](DECISIONS.md#d-25--the-session-owns-the-position-and-both-players-moves-reach-it-the-same-way) → [D-26](DECISIONS.md#d-26--nothing-inbound-is-trusted-and-a-disagreement-stops-the-game) → [D-27](DECISIONS.md#d-27--one-live-region-for-the-whole-application-and-the-game-names-the-connection) *(current)*, with [N-6](DECISIONS.md#n-6--render-gained-a-second-caller-and-it-was-not-written-for-one) *(landmine)* |
 | **Validation and divergence** | [D-26](DECISIONS.md#d-26--nothing-inbound-is-trusted-and-a-disagreement-stops-the-game) |
 | **Announcements and live regions** | [D-27](DECISIONS.md#d-27--one-live-region-for-the-whole-application-and-the-game-names-the-connection) — one region announces moves, halts and connection changes; connection status reaches `ui/` as a `game/`-owned state, never as `protocol/`'s |
-| **Reporting the connection to players** | [D-28](DECISIONS.md#d-28--only-the-transport-may-claim-a-connection-and-it-must-give-up-on-its-own) — only the transport may claim a connection; the banner is the single answer, and the transport bounds and tears down its own failed attempts (R-9) |
+| **Reporting the connection to players** | [D-28](DECISIONS.md#d-28--only-the-transport-may-claim-a-connection-and-it-must-give-up-on-its-own) → [D-30](DECISIONS.md#d-30--a-dropped-connection-is-bounded-too-on-a-longer-clock-than-the-first-attempt) *(current)* — only the transport may claim a connection; the banner is the single answer, and the transport bounds and tears down both a failed attempt and a dropped connection (R-9) |
+| **What the board will accept** | [D-29](DECISIONS.md#d-29--the-board-refuses-input-until-a-connection-has-existed-and-never-again-after-that) — no input before a connection has ever existed, so the local board cannot become a private game; unaffected by a later drop. Task 5.1's turn ownership is the other half |
 | **Rules of play** | [D-2](DECISIONS.md#d-2--american-draughts-with-three-house-modifications) → [D-3](DECISIONS.md#d-3--a-capture-chain-may-be-abandoned-at-any-point) → [D-4](DECISIONS.md#d-4--draws-by-agreement-only-with-a-non-binding-advisory) *(current)* |
 | **Rules engine internals** | [D-8](DECISIONS.md#d-8--the-move-generator-emits-capture-chain-prefixes-as-first-class-moves) |
 | **Sides, colour, and theme** | [D-7](DECISIONS.md#d-7--logical-sides-are-separate-from-display-colours) → [D-9](DECISIONS.md#d-9--contrast-validation-at-selection-plus-a-non-colour-side-marker) *(current)* |
@@ -68,6 +69,11 @@ Decisions whose consequences bite silently, worth knowing before you touch the r
   believed. `RTCPeerConnection` may sit in `connecting` forever without ever reporting
   `failed`, so a bound that waits for the browser is not a bound — and a timeout that only
   changes a label leaves a live channel underneath it.
+- **[D-30](DECISIONS.md#d-30--a-dropped-connection-is-bounded-too-on-a-longer-clock-than-the-first-attempt)** —
+  a give-up clock must stop when the browser reaches its **own** verdict, not only when the
+  connection succeeds. A browser usually concludes a dropped connection well inside the sixty
+  seconds this waits, so a clock left running fires afterwards, tears down an already-failed
+  connection a second time, and publishes over the top of that verdict.
 - **[D-27](DECISIONS.md#d-27--one-live-region-for-the-whole-application-and-the-game-names-the-connection)** —
   `RTCPeerConnection` reports `failed` both for a connection that never formed and for a
   working one that died, so anything reading it alone will tell a player whose network is fine

@@ -650,3 +650,62 @@ describe("connection state", () => {
     expect(seen).toEqual([]);
   });
 });
+
+/*
+ * Issue #41. The board must not accept moves before a connection has ever existed: they apply
+ * locally, silently fail to send, and turn this client into a private game with no history to
+ * reconcile and no peer to reconcile it with. The live test found exactly that — both players
+ * moving pieces, both boards changing, and nothing crossing.
+ *
+ * The session reports the fact; the board is what acts on it. `play` deliberately still works
+ * without a connection, because a session with no transport is a legitimate thing to hold.
+ */
+describe("whether a connection has ever existed", () => {
+  it("is false before anything has connected", () => {
+    expect(createSession().hasConnected()).toBe(false);
+  });
+
+  it("is still false while the first attempt is only trying", () => {
+    const stub = stubTransport();
+    const session = createSession();
+    session.attach(stub.transport);
+
+    stub.setStatus("connecting");
+
+    expect(session.hasConnected()).toBe(false);
+  });
+
+  it("becomes true when a connection arrives", () => {
+    const stub = stubTransport();
+    const session = createSession();
+    session.attach(stub.transport);
+
+    stub.setStatus("connecting", "connected");
+
+    expect(session.hasConnected()).toBe(true);
+  });
+
+  it("stays true after the connection drops, so play can continue", () => {
+    // Task 1.4's reasoning holds once a game is under way: the move was legal, the player made
+    // it, and 5.4's `sync` reconciles the histories. Only the never-connected case is refused.
+    const stub = stubTransport();
+    const session = createSession();
+    session.attach(stub.transport);
+
+    stub.setStatus("connecting", "connected", "reconnecting", "failed");
+
+    expect(session.hasConnected()).toBe(true);
+  });
+
+  it("does not stop a session with no transport from applying a move", () => {
+    // The board is what refuses input (#41); the session stays usable without a connection,
+    // which the tests above and a phase-6 single-player game both depend on.
+    const session = createSession();
+    const before = session.position();
+
+    session.play(firstOpeningMove());
+
+    expect(session.position()).not.toBe(before);
+    expect(session.hasConnected()).toBe(false);
+  });
+});
