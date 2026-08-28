@@ -23,13 +23,20 @@ Phase 1 connects two browsers before the engine exists.
 | Phase | Theme | Status |
 | --- | --- | --- |
 | 0 | Repository, toolchain, CI, deploy | ☑ |
-| 1 | Walking skeleton — two browsers connected | ☐ |
+| 1 | Walking skeleton — two browsers connected | ◐ |
 | 2 | Rules engine | ☑ |
-| 3 | Board interface and input | ☐ |
+| 3 | Board interface and input | ☑ * |
 | 4 | Animation, colour, and theme | ☐ |
 | 5 | Game lifecycle | ☐ |
 | 6 | AI opponent | ☐ |
 | 7 | Hardening and acceptance | ☐ |
+
+\* **Phase 3's ☑ is granted on its task list and two-tab verification, not on the
+between-two-locations game its own live-test note describes** (session owner's call). That game
+has not been played: the phase 1 + 3 live test was attempted on 2026-08-13 and failed, and the
+re-run has not happened. Read it as "the board and input work is done and nothing is expected
+back from it", and treat phase 1's ◐ as the honest record of what both phases still owe —
+mistaking two-tab verification for the real thing is exactly what that failed run cost us.
 
 ---
 
@@ -482,9 +489,12 @@ most reliable way to end up not having it.
   reconciliation, so **the halt is terminal in v1** — resuming is task 5.4's.
 
 **Live test at end of phase 3** — a complete, rules-correct game played between two
-locations, unanimated. **Every task in this phase is now built and merged; this test is all
-that stands between it and ☑.** It overlaps almost entirely with phase 1's, which also needs
-two locations and the same connection ritual, so the two are worth running in one sitting.
+locations, unanimated. **Every task in this phase is built and merged, and the phase is marked
+☑ on that basis** (session owner's call) — but **this test itself is still outstanding**, so
+the tick is narrower than the legend's "complete and live-tested" implies; see the note under
+the phase overview. It overlaps almost entirely with phase 1's, which also needs two locations
+and the same connection ritual, so the two are worth running in one sitting, and phase 1's ◐
+is what tracks the fact that they are both still owed.
 Note what it cannot cover yet: with `VIEWING_SIDE` hardcoded and no turn ownership until task
 5.1, both players still see the board from Black's side and either can move either colour.
 
